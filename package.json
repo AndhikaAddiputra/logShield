@@ -1,0 +1,23 @@
+{
+  "name": "log-shield-monorepo",
+  "private": true,
+  "description": "Log-Shield — AI & IoT Humanitarian Logistics Intelligence (npm workspaces)",
+  "workspaces": [
+    "apps/mobile-app",
+    "apps/web-dashboard",
+    "apps/server-backend",
+    "packages/shared-types",
+    "packages/ui-core",
+    "packages/utils"
+  ],
+  "scripts": {
+    "postinstall": "npm run build -w @log-shield/shared-types -w @log-shield/utils -w @log-shield/ui-core",
+    "build": "npm run build --workspaces --if-present",
+    "dev:mobile": "npm run dev -w @log-shield/mobile-app",
+    "dev:web": "npm run dev -w @log-shield/web-dashboard",
+    "dev:server": "npm run dev -w @log-shield/server-backend"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
