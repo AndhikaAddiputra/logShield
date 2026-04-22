@@ -1,15 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
-import { Shell } from "@log-shield/ui-core";
-import { isValidKib16 } from "@log-shield/shared-types";
+import { MobileBottomNav } from "@log-shield/ui-core";
+import { LayoutDashboard, Package, User } from "lucide-react";
 import { createLocalDb, startCouchReplication } from "./lib/pouch";
 import { useSyncStore } from "./store/syncStore";
+import { MobileDashboardPage } from "./pages/MobileDashboardPage";
+import { MobilePlaceholderPage } from "./pages/MobilePlaceholderPage";
+
+type MobileTab = "dashboard" | "logistics" | "profile";
+
+const navItems = [
+  { id: "dashboard" as const, label: "Dashboard", icon: LayoutDashboard },
+  { id: "logistics" as const, label: "Logistik", icon: Package },
+  { id: "profile" as const, label: "Profil", icon: User },
+];
 
 export default function App() {
-  const { status, detail, lastError } = useSyncStore();
-  const [kibInput, setKibInput] = useState("");
-
+  const [tab, setTab] = useState<MobileTab>("dashboard");
   const remoteUrl = import.meta.env.VITE_COUCHDB_URL;
-  const kibOk = useMemo(() => isValidKib16(kibInput.trim()), [kibInput]);
 
   useEffect(() => {
     const local = createLocalDb();
@@ -27,54 +34,42 @@ export default function App() {
     };
   }, [remoteUrl]);
 
-  const statusColor =
-    status === "syncing"
-      ? "text-amber-300"
-      : status === "error"
-        ? "text-rose-400"
-        : "text-emerald-400";
+  const bottomNavItems = useMemo(
+    () =>
+      navItems.map(({ id, label, icon }) => ({
+        id,
+        label,
+        icon,
+      })),
+    []
+  );
 
   return (
-    <Shell title="Log-Shield — Petugas Lapangan">
-      <div className="space-y-6">
-        <section
-          className="rounded-xl border border-slate-800 bg-slate-900/60 p-4"
-          aria-live="polite"
-        >
-          <h2 className="text-sm font-medium text-slate-300">
-            Status sinkronisasi
-          </h2>
-          <p className={`mt-1 text-lg font-semibold ${statusColor}`}>
-            {status.toUpperCase()}
-          </p>
-          <p className="mt-2 text-sm leading-relaxed text-slate-400">{detail}</p>
-          {lastError ? (
-            <p className="mt-2 text-xs text-rose-300/90">{lastError}</p>
-          ) : null}
-        </section>
-
-        <section className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
-          <label className="text-sm text-slate-300" htmlFor="kib">
-            KIB (16 digit) — validasi klien
-          </label>
-          <input
-            id="kib"
-            className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-slate-100 outline-none ring-0 focus:border-sky-500"
-            inputMode="numeric"
-            maxLength={16}
-            placeholder="Contoh: 3201010101010101"
-            value={kibInput}
-            onChange={(e) => setKibInput(e.target.value.replace(/\D/g, ""))}
+    <div className="relative flex min-h-dvh flex-col bg-ls-surface">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden">
+        {tab === "dashboard" ? (
+          <MobileDashboardPage
+            onMenuPress={() => {
+              /* drawer menu — iterasi berikutnya */
+            }}
+            onAddResource={() => {
+              /* navigasi ke data entry — iterasi berikutnya */
+            }}
           />
-          <p className="mt-2 text-xs text-slate-500">
-            {kibInput.length === 0
-              ? "Masukkan tepat 16 angka."
-              : kibOk
-                ? "Format KIB valid."
-                : "Belum valid — harus 16 digit numerik."}
-          </p>
-        </section>
+        ) : null}
+        {tab === "logistics" ? (
+          <MobilePlaceholderPage title="Logistik" />
+        ) : null}
+        {tab === "profile" ? (
+          <MobilePlaceholderPage title="Profil" />
+        ) : null}
       </div>
-    </Shell>
+
+      <MobileBottomNav
+        items={bottomNavItems}
+        activeId={tab}
+        onChange={(id) => setTab(id as MobileTab)}
+      />
+    </div>
   );
 }

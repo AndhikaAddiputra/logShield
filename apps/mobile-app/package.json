@@ -13,6 +13,8 @@
     "@log-shield/shared-types": "*",
     "@log-shield/ui-core": "*",
     "@log-shield/utils": "*",
+    "events": "^3.3.0",
+    "lucide-react": "^0.460.0",
     "pouchdb": "^8.0.1",
     "pouchdb-find": "^8.0.1",
     "react": "^18.3.1",

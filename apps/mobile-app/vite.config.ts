@@ -1,6 +1,9 @@
+import { createRequire } from "node:module";
 import path from "node:path";
 import react from "@vitejs/plugin-react";
 import { defineConfig, loadEnv } from "vite";
+
+const require = createRequire(import.meta.url);
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
@@ -8,6 +11,8 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     resolve: {
       alias: {
+        // Vite stubs Node "events" unless we point to the real package (fixes PouchDB EventEmitter).
+        events: require.resolve("events"),
         "@log-shield/shared-types": path.resolve(
           __dirname,
           "../../packages/shared-types/src/index.ts"
@@ -26,7 +31,7 @@ export default defineConfig(({ mode }) => {
       port: Number(env.VITE_DEV_PORT || 5173),
     },
     optimizeDeps: {
-      include: ["pouchdb", "pouchdb-find"],
+      include: ["pouchdb", "pouchdb-find", "events"],
     },
   };
 });

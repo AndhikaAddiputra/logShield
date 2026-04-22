@@ -1,0 +1,9 @@
+/**
+ * Log-Shield global tokens (optional layer on top of Tailwind `ls-*` preset).
+ * Import once in app entry CSS, e.g. `@import "@log-shield/ui-core/tokens.css";`
+ */
+:root {
+  --ls-radius-card: 12px;
+  --ls-radius-control: 10px;
+  --ls-transition: 150ms ease;
+}
