@@ -22,6 +22,7 @@ import {
   LayoutDashboard,
   Package,
   Sparkles,
+  Tent,
   Users,
 } from "lucide-react";
 import {
@@ -32,10 +33,12 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { LogisticsRequestPage } from "./pages/LogisticsRequest";
 
 const nav = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "logistics", label: "Logistics", icon: Package },
+  { id: "posko", label: "Posko", icon: Tent },
+  { id: "logistics-rec", label: "Logistics Request", icon: ClipboardList },
   { id: "assets", label: "Assets", icon: Boxes },
   { id: "personnel", label: "Personnel", icon: Users },
 ];
@@ -64,6 +67,15 @@ export default function App() {
     ),
     [active]
   );
+
+  // Render Logistics Request page
+  if (active === "logistics-rec") {
+    return (
+      <AppLayout sidebar={sidebar}>
+        <LogisticsRequestPage />
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout sidebar={sidebar}>
