@@ -4,9 +4,6 @@ const config: CapacitorConfig = {
   appId: "id.ac.itb.logshield.field",
   appName: "Log-Shield",
   webDir: "dist",
-  server: {
-    androidScheme: "https",
-  },
 };
 
 export default config;
