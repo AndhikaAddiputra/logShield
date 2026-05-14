@@ -16,7 +16,7 @@ const poskoData = [
       pengungsi: 923,
       balita: 78,
       perempuan: 200,
-      lakilaki: 200,
+      disabilitas: 200,
       pria: 723,
       lansia: 20,
     },
@@ -32,7 +32,7 @@ const poskoData = [
       pengungsi: 923,
       balita: 78,
       perempuan: 200,
-      lakilaki: 200,
+      disabilitas: 200,
       pria: 723,
       lansia: 20,
     },
@@ -48,7 +48,7 @@ const poskoData = [
       pengungsi: 923,
       balita: 78,
       perempuan: 200,
-      lakilaki: 200,
+      disabilitas: 200,
       pria: 723,
       lansia: 20,
     },
@@ -64,7 +64,7 @@ const poskoData = [
       pengungsi: 923,
       balita: 78,
       perempuan: 200,
-      lakilaki: 200,
+      disabilitas: 200,
       pria: 723,
       lansia: 20,
     },
@@ -78,7 +78,7 @@ interface PoskoStats {
   pengungsi: number;
   balita: number;
   perempuan: number;
-  lakilaki: number;
+  disabilitas: number;
   pria: number;
   lansia: number;
 }
@@ -123,9 +123,9 @@ function PoskoCard({ posko }: { posko: PoskoItem }) {
           <StatItem icon="👥" label="PENGUNGSI" value={posko.stats.pengungsi} />
           <StatItem icon="👶" label="BALITA" value={posko.stats.balita} />
           <StatItem icon="♀️" label="PEREMPUAN" value={posko.stats.perempuan} />
-          <StatItem icon="♂️" label="LAKI-LAKI" value={posko.stats.lakilaki} />
+          <StatItem icon="♂️" label="LANSIA" value={posko.stats.lansia} />
           <StatItem icon="🚹" label="PRIA" value={posko.stats.pria} />
-          <StatItem icon="👴" label="LANSIA" value={posko.stats.lansia} />
+          <StatItem icon="👴" label="DISABILITAS" value={posko.stats.disabilitas} />
         </div>
       </div>
 
@@ -138,7 +138,7 @@ function PoskoCard({ posko }: { posko: PoskoItem }) {
           type="button"
           variant="outline"
           size="sm"
-          className="border-white text-white hover:bg-white/10 flex items-center gap-2"
+          className="border-white text-white !bg-ls-navy hover:bg-ls-navy/10 flex items-center gap-2"
         >
           <Phone className="size-4" />
           CALL

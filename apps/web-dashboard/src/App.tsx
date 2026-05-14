@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import {
   AppLayout,
   Badge,
@@ -22,8 +23,8 @@ import {
   LayoutDashboard,
   Package,
   Sparkles,
-  Tent,
   Users,
+  MapPin,
 } from "lucide-react";
 import {
   Bar,
@@ -33,15 +34,11 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { AssetsPage } from "./pages/Assets";
+import { LogisticsPage } from "./pages/Logistics";
 import { LogisticsRequestPage } from "./pages/LogisticsRequest";
-
-const nav = [
-  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "posko", label: "Posko", icon: Tent },
-  { id: "logistics-rec", label: "Logistics Request", icon: ClipboardList },
-  { id: "assets", label: "Assets", icon: Boxes },
-  { id: "personnel", label: "Personnel", icon: Users },
-];
+import { PersonnelPage } from "./pages/Personnel";
+import { PoskoPage } from "./pages/Posko";
 
 const chartDemo = [
   { name: "Mon", kebutuhan: 400, persediaan: 320 },
@@ -49,41 +46,12 @@ const chartDemo = [
   { name: "Wed", kebutuhan: 420, persediaan: 300 },
 ];
 
-export default function App() {
-  const [active, setActive] = useState("dashboard");
+function DashboardPage() {
   const [page, setPage] = useState(1);
 
-  const sidebar = useMemo(
-    () => (
-      <LogShieldSidebar
-        productSubtitle="Disaster Response v1.2"
-        navItems={nav}
-        activeId={active}
-        onNavigate={setActive}
-        onNewReport={() => {}}
-        onSupportClick={() => {}}
-        user={{ name: "Anakin", role: "Officer 742" }}
-      />
-    ),
-    [active]
-  );
-
-  // Render Logistics Request page
-  if (active === "logistics-rec") {
-    return (
-      <AppLayout sidebar={sidebar}>
-        <LogisticsRequestPage />
-      </AppLayout>
-    );
-  }
-
   return (
-    <AppLayout sidebar={sidebar}>
-      <PageHeader
-        title="Dashboard"
-        onSearchChange={() => {}}
-        showNotifications
-      />
+    <>
+      <PageHeader title="Dashboard" onSearchChange={() => {}} showNotifications />
       <FilterBar meta="Ringkasan wilayah aktif">
         <SelectField defaultValue="all" className="min-w-[180px]">
           <option value="all">Semua posko</option>
@@ -193,6 +161,86 @@ export default function App() {
       <p className="border-t border-ls-border px-6 py-3 text-center text-xs text-ls-muted">
         LOG-SHIELD • Dashboard • Komponen dari @log-shield/ui-core
       </p>
+    </>
+  );
+}
+
+const routes = [
+  {
+    id: "dashboard",
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    path: "/",
+    element: <DashboardPage />,
+  },
+  {
+    id: "logistics",
+    label: "Logistics",
+    icon: Package,
+    path: "/logistics",
+    element: <LogisticsPage />,
+  },
+  {
+    id: "posko",
+    label: "Data Posko",
+    icon: MapPin,
+    path: "/posko",
+    element: <PoskoPage />,
+  },
+  {
+    id: "assets",
+    label: "Assets",
+    icon: Boxes,
+    path: "/assets",
+    element: <AssetsPage />,
+  },
+  {
+    id: "personnel",
+    label: "Personnel",
+    icon: Users,
+    path: "/personnel",
+    element: <PersonnelPage />,
+  },
+];
+
+export default function App() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const activeId =
+    routes.find((route) =>
+      route.path === "/"
+        ? location.pathname === "/"
+        : location.pathname.startsWith(route.path)
+    )?.id ?? "dashboard";
+
+  const sidebar = useMemo(
+    () => (
+      <LogShieldSidebar
+        productSubtitle="Disaster Response v1.2"
+        navItems={routes.map(({ id, label, icon }) => ({ id, label, icon }))}
+        activeId={activeId}
+        onNavigate={(id) => {
+          const target = routes.find((route) => route.id === id);
+          if (target) {
+            navigate(target.path);
+          }
+        }}
+        onNewReport={() => {}}
+        onSupportClick={() => {}}
+        user={{ name: "Anakin", role: "Officer 742" }}
+      />
+    ),
+    [activeId, navigate]
+  );
+
+  return (
+    <AppLayout sidebar={sidebar}>
+      <Routes>
+        {routes.map((route) => (
+          <Route key={route.id} path={route.path} element={route.element} />
+        ))}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </AppLayout>
   );
 }
