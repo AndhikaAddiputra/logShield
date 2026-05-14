@@ -1,64 +1,253 @@
 import type { Kib16 } from "./kib.js";
 
-/**
- * All operational documents are keyed by disaster instance via `kib`.
- * `_id` must be unique per document; recommended pattern: `${kib}::<type>::<suffix>`.
- */
-export function makeDocumentId(
-  kib: Kib16,
-  docType: string,
-  suffix: string
-): string {
-  return `${kib}::${docType}::${suffix}`;
-}
-
-export interface KibDocumentBase {
-  _id: string;
-  kib: Kib16;
-  _rev?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export type SyncStatus = "idle" | "syncing" | "paused" | "error";
 
-export interface SyncMetaDoc extends KibDocumentBase {
-  type: "sync_meta";
-  /** One meta doc per KIB / device if needed */
-  lastSeq?: string;
-  lastError?: string;
-  status: SyncStatus;
+export type DistributionUnit = "kg" | "liter" | "pcs" | "karton" | "kit";
+export type AssetUnit = "kg" | "pcs" | "karton" | "unit";
+export type VulnerableGroup =
+  | "umum"
+  | "balita"
+  | "lansia"
+  | "ibu_hamil"
+  | "disabilitas";
+export type RequestStatus = "mendesak" | "menunggu" | "diproses" | "selesai";
+export type RequestPriority = "critical" | "high" | "normal" | "low";
+export type AssetCategory = "sandang" | "pangan" | "papan" | "lainnya";
+export type AuditStatus = "sukses" | "ditolak" | "timeout" | "error";
+export type UserRole = "admin" | "koordinator" | "lapangan";
+export type PoskoStatus = "active" | "inactive" | "closed";
+
+export type LogShieldDocumentType =
+  | "user"
+  | "posko"
+  | "distribution"
+  | "stock_reading"
+  | "prediction"
+  | "request"
+  | "asset"
+  | "audit_log";
+
+export interface CouchDocumentBase {
+  _id: string;
+  _rev?: string;
+  type: LogShieldDocumentType;
 }
 
-export interface LogisticsStockDoc extends KibDocumentBase {
-  type: "logistics_stock";
-  itemCode: string;
+export interface UserDoc extends CouchDocumentBase {
+  _id: `user::${string}`;
+  type: "user";
+  email: string;
+  name: string;
+  /** AES-256 encrypted 16-digit NIK. */
+  nik: string;
+  kib_bencana_id: string;
+  role: UserRole;
+  posko_id: `posko::${string}` | null;
+  phone: string;
+  avatar_url?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PoskoDoc extends CouchDocumentBase {
+  _id: `posko::${string}`;
+  type: "posko";
+  kib_16: Kib16;
+  name: string;
+  address: string;
+  province: string;
+  district: string;
+  total_pengungsi: number;
+  count_balita: number;
+  count_lansia: number;
+  count_perempuan: number;
+  count_pria: number;
+  count_disabilitas: number;
+  pj_name: string;
+  pj_phone: string;
+  status: PoskoStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DistributionDoc extends CouchDocumentBase {
+  _id: `distribution::${string}::${string}`;
+  type: "distribution";
+  kib_16: Kib16;
+  posko_id: string;
+  officer_id: string;
+  commodity: string;
   quantity: number;
-  unit: string;
-  warehouseId: string;
+  unit: DistributionUnit;
+  /** AES-256 encrypted KIB pengungsi penerima. */
+  recipient_kib: string;
+  vulnerable_group: VulnerableGroup | null;
   notes?: string;
+  synced: boolean;
+  created_at: string;
+  synced_at: string | null;
 }
 
-export interface DistributionEventDoc extends KibDocumentBase {
-  type: "distribution_event";
-  beneficiaryCount: number;
-  goodsSummary: string;
-  distributedAt: string;
-  officerId: string;
+export interface StockReadingDoc extends CouchDocumentBase {
+  _id: `stock_reading::${string}::${string}::${string}`;
+  type: "stock_reading";
+  warehouse_id: string;
+  node_id: string;
+  commodity: string;
+  weight_g: number;
+  weight_delta_g: number;
+  sample_count: number;
+  rssi: number;
+  uptime_s: number;
+  battery_mv: number | null;
+  timestamp: string;
+  created_at: string;
 }
 
-/** Cached AI output replicated to mobile for offline display */
-export interface ForecastSnapshotDoc extends KibDocumentBase {
-  type: "forecast_snapshot";
-  predictedDemand: number;
-  modelVersion: string;
-  generatedAt: string;
-  maeEstimate?: number;
-  rationaleHints?: string[];
+export interface PredictionRationaleChip {
+  feature: string;
+  narrative: string;
+  shap_value: number;
+}
+
+export interface PredictionDoc extends CouchDocumentBase {
+  _id: `prediction::${string}::${string}::${string}`;
+  type: "prediction";
+  posko_id: string;
+  commodity: string;
+  prediction_date: string;
+  predicted_kg: number;
+  confidence_low: number;
+  confidence_high: number;
+  mae_last_7d: number;
+  shap_values: Record<string, number>;
+  rationale_chips: PredictionRationaleChip[];
+  model_version: string;
+  created_at: string;
+}
+
+export interface RequestItem {
+  commodity: string;
+  quantity: number;
+  unit: DistributionUnit | AssetUnit;
+  note?: string;
+}
+
+export interface RequestDoc extends CouchDocumentBase {
+  _id: `request::${string}`;
+  type: "request";
+  request_code: string;
+  posko_id: string;
+  submitted_by: string;
+  items: RequestItem[];
+  status: RequestStatus;
+  priority: RequestPriority;
+  processed_by: string | null;
+  processed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AssetDoc extends CouchDocumentBase {
+  _id: `asset::${string}::${string}`;
+  type: "asset";
+  warehouse_id: string;
+  commodity: string;
+  category: AssetCategory;
+  quantity_available: number;
+  unit: AssetUnit;
+  min_threshold: number;
+  last_sensor_weight_g: number | null;
+  last_sensor_update: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AuditLogDoc extends CouchDocumentBase {
+  _id: `audit_log::${string}::${string}`;
+  type: "audit_log";
+  user_id: string | null;
+  action: string;
+  target_type: LogShieldDocumentType | string;
+  target_id: string | null;
+  old_values: Record<string, unknown> | null;
+  new_values: Record<string, unknown> | null;
+  ip_address: string;
+  status: AuditStatus;
+  created_at: string;
 }
 
 export type LogShieldDocument =
-  | LogisticsStockDoc
-  | DistributionEventDoc
-  | ForecastSnapshotDoc
-  | SyncMetaDoc;
+  | UserDoc
+  | PoskoDoc
+  | DistributionDoc
+  | StockReadingDoc
+  | PredictionDoc
+  | RequestDoc
+  | AssetDoc
+  | AuditLogDoc;
+
+export const LOGSHIELD_INDEX_FIELDS = [
+  "type",
+  "kib_16",
+  "posko_id",
+  "warehouse_id",
+  "node_id",
+  "commodity",
+  "request_code",
+  "status",
+  "priority",
+  "created_at",
+  "updated_at",
+  "timestamp",
+  "prediction_date",
+  "target_type",
+  "target_id",
+  "user_id",
+  "email",
+  "nik",
+  "role",
+  "kib_bencana_id",
+  "province",
+  "district",
+] as const;
+
+export function makeUserId(uuid: string) {
+  return `user::${uuid}` as const;
+}
+
+export function makePoskoId(kib: Kib16) {
+  return `posko::${kib}` as const;
+}
+
+export function makeDistributionId(kib: Kib16, uuid: string) {
+  return `distribution::${kib}::${uuid}` as const;
+}
+
+export function makeStockReadingId(
+  warehouseId: string,
+  nodeId: string,
+  timestampMs: number | string
+) {
+  return `stock_reading::${warehouseId}::${nodeId}::${timestampMs}` as const;
+}
+
+export function makePredictionId(
+  poskoId: string,
+  commodity: string,
+  predictionDate: string
+) {
+  return `prediction::${poskoId}::${commodity}::${predictionDate}` as const;
+}
+
+export function makeRequestId(requestCode: string) {
+  return `request::${requestCode}` as const;
+}
+
+export function makeAssetId(warehouseId: string, commodity: string) {
+  return `asset::${warehouseId}::${commodity}` as const;
+}
+
+export function makeAuditLogId(timestampMs: number | string, uuid: string) {
+  return `audit_log::${timestampMs}::${uuid}` as const;
+}
