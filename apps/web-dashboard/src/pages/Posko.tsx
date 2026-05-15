@@ -6,6 +6,12 @@ import {
   SelectField,
 } from "@log-shield/ui-core";
 import { Phone } from "lucide-react";
+import balitaIcon from "../assets/icons/balita.svg";
+import disabilitasIcon from "../assets/icons/disabilitas.svg";
+import lansiaIcon from "../assets/icons/lansia.svg";
+import pengungsiIcon from "../assets/icons/pengungsi.svg";
+import perempuanIcon from "../assets/icons/perempuan.svg";
+import priaIcon from "../assets/icons/pria.svg";
 
 const poskoData = [
   {
@@ -94,15 +100,15 @@ interface PoskoItem {
 }
 
 interface StatItemProps {
-  icon: string;
+  iconSrc: string;
   label: string;
   value: number;
 }
 
-function StatItem({ icon, label, value }: StatItemProps) {
+function StatItem({ iconSrc, label, value }: StatItemProps) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xl">{icon}</span>
+      <img src={iconSrc} alt={label} className="size-6 shrink-0" />
       <div>
         <div className="text-sm font-semibold text-ls-navy">{value}</div>
         <div className="text-xs text-ls-muted">{label}</div>
@@ -120,12 +126,12 @@ function PoskoCard({ posko }: { posko: PoskoItem }) {
         <p className="text-sm text-ls-muted mb-4">{posko.location}</p>
 
         <div className="grid grid-cols-2 gap-4 mb-4">
-          <StatItem icon="👥" label="PENGUNGSI" value={posko.stats.pengungsi} />
-          <StatItem icon="👶" label="BALITA" value={posko.stats.balita} />
-          <StatItem icon="♀️" label="PEREMPUAN" value={posko.stats.perempuan} />
-          <StatItem icon="♂️" label="LANSIA" value={posko.stats.lansia} />
-          <StatItem icon="🚹" label="PRIA" value={posko.stats.pria} />
-          <StatItem icon="👴" label="DISABILITAS" value={posko.stats.disabilitas} />
+          <StatItem iconSrc={pengungsiIcon} label="PENGUNGSI" value={posko.stats.pengungsi} />
+          <StatItem iconSrc={balitaIcon} label="BALITA" value={posko.stats.balita} />
+          <StatItem iconSrc={perempuanIcon} label="PEREMPUAN" value={posko.stats.perempuan} />
+          <StatItem iconSrc={lansiaIcon} label="LANSIA" value={posko.stats.lansia} />
+          <StatItem iconSrc={priaIcon} label="PRIA" value={posko.stats.pria} />
+          <StatItem iconSrc={disabilitasIcon} label="DISABILITAS" value={posko.stats.disabilitas} />
         </div>
       </div>
 

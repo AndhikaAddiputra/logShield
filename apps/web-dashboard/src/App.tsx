@@ -25,6 +25,7 @@ import {
   Sparkles,
   Users,
   MapPin,
+  Settings,
 } from "lucide-react";
 import {
   Bar,
@@ -39,6 +40,7 @@ import { LogisticsPage } from "./pages/Logistics";
 import { LogisticsRequestPage } from "./pages/LogisticsRequest";
 import { PersonnelPage } from "./pages/Personnel";
 import { PoskoPage } from "./pages/Posko";
+import { SettingsPage } from "./pages/Settings";
 
 const chartDemo = [
   { name: "Mon", kebutuhan: 400, persediaan: 320 },
@@ -177,8 +179,8 @@ const routes = [
     id: "logistics",
     label: "Logistics",
     icon: Package,
-    path: "/logistics",
-    element: <LogisticsPage />,
+    path: "/logisticsRequests",
+    element: <LogisticsRequestPage />,
   },
   {
     id: "posko",
@@ -200,6 +202,13 @@ const routes = [
     icon: Users,
     path: "/personnel",
     element: <PersonnelPage />,
+  },
+  {
+    id: "settings",
+    label: "Settings",
+    icon: Settings,
+    path: "/settings",
+    element: <SettingsPage />,
   },
 ];
 
