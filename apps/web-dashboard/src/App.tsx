@@ -4,6 +4,7 @@ import {
   AppLayout,
   LogShieldSidebar,
   PageHeader,
+  SelectField,
   StatCard,
 } from "@log-shield/ui-core";
 import {
@@ -72,6 +73,12 @@ const vulnerableDistribution = [
 
 function DashboardPage() {
   const [search, setSearch] = useState("");
+  const [stockWeightItem, setStockWeightItem] = useState("pangan-beras");
+  const stockWeightOptions = [
+    { label: "Pangan - Beras", value: "pangan-beras" },
+    { label: "Pangan - Mie Instan", value: "pangan-mie" },
+    { label: "Pangan - Air Mineral", value: "pangan-air" },
+  ];
 
   return (
     <>
@@ -105,7 +112,18 @@ function DashboardPage() {
               Daily Stock Weight per Item Category
             </h2>
             <div className="flex items-center gap-4 text-sm text-ls-navy">
-              <span>Pangan - Beras</span>
+              <SelectField
+                value={stockWeightItem}
+                onChange={(event) => setStockWeightItem(event.target.value)}
+                className="h-8 w-44 bg-white text-xs"
+                aria-label="Pilih item stok harian"
+              >
+                {stockWeightOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </SelectField>
               <Filter className="size-4" />
             </div>
           </div>
@@ -229,7 +247,7 @@ const routes = [
     label: "Logistics",
     icon: Package,
     path: "/logistics",
-    element: <LogisticsPage />,
+    element: <LogisticsRequestPage />,
   },
   {
     id: "posko",
@@ -276,7 +294,6 @@ export default function App() {
       <LogShieldSidebar
         brandName="LogShield"
         brandLogoSrc={logoMark}
-        productSubtitle="Disaster Response v1.2"
         navItems={routes.map(({ id, label, icon }) => ({ id, label, icon }))}
         activeId={activeId}
         onNavigate={(id) => {

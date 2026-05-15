@@ -19,7 +19,7 @@ export interface SidebarNavItem {
 
 export interface LogShieldSidebarProps {
   /** e.g. Disaster Response v1.2 */
-  productSubtitle: string;
+  productSubtitle?: string;
   brandName?: string;
   brandLogoSrc?: string;
   brandLogoAlt?: string;
@@ -57,42 +57,52 @@ export function LogShieldSidebar({
         className
       )}
     >
-      <div className="relative border-b border-ls-sidebar-border px-5 py-6">
-        <div className="flex items-center gap-3 pr-8">
-          <div
-            className={cn(
-              "flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-ls-sm border border-ls-border bg-white",
-              isCollapsed && "mx-auto"
-            )}
-          >
-            {brandLogoSrc ? (
-              <img
-                src={brandLogoSrc}
-                alt={brandLogoAlt ?? brandName}
-                className="size-7 object-contain"
-              />
-            ) : (
-              <span className="text-sm font-bold text-ls-navy">LS</span>
+      <div className="border-b border-ls-sidebar-border px-5 py-6">
+        <div
+          className={cn(
+            "flex gap-3",
+            isCollapsed ? "flex-col items-center" : "items-center justify-between"
+          )}
+        >
+          <div className="flex items-center gap-3">
+            <div
+              className={cn(
+                "flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-ls-sm border border-ls-border bg-white"
+              )}
+            >
+              {brandLogoSrc ? (
+                <img
+                  src={brandLogoSrc}
+                  alt={brandLogoAlt ?? brandName}
+                  className="size-7 object-contain"
+                />
+              ) : (
+                <span className="text-sm font-bold text-ls-navy">LS</span>
+              )}
+            </div>
+            {!isCollapsed && (
+              <div className="min-w-0">
+                <p className="text-lg font-bold tracking-tight text-ls-navy">{brandName}</p>
+                {productSubtitle ? (
+                  <p className="mt-1 text-xs text-ls-muted">{productSubtitle}</p>
+                ) : null}
+              </div>
             )}
           </div>
-          {!isCollapsed && (
-            <div className="min-w-0">
-              <p className="text-lg font-bold tracking-tight text-ls-navy">{brandName}</p>
-              <p className="mt-1 text-xs text-ls-muted">{productSubtitle}</p>
-            </div>
-          )}
+          <div className="flex shrink-0 items-center justify-center">
+            <button
+              type="button"
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              className="flex size-8 items-center justify-center rounded-full border border-ls-border bg-white transition-colors hover:bg-gray-50"
+              aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              <ChevronLeft
+                className={cn("size-4 transition-transform", isCollapsed && "rotate-180")}
+                aria-hidden
+              />
+            </button>
+          </div>
         </div>
-        <button
-          type="button"
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center justify-center size-8 rounded-full bg-white border border-ls-border hover:bg-gray-50 transition-colors"
-          aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          <ChevronLeft
-            className={cn("size-4 transition-transform", isCollapsed && "rotate-180")}
-            aria-hidden
-          />
-        </button>
       </div>
       <nav className="flex flex-1 flex-col gap-1 px-3 py-4" aria-label="Utama">
         {navItems.map((item) => {
