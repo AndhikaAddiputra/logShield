@@ -1,19 +1,57 @@
 import React, { useState } from 'react';
-import { MapPin, Users, Database, ChevronRight } from 'lucide-react';
+import { MapPin, Users, Database, ChevronRight, Loader2 } from 'lucide-react';
+import { API_BASE_URL, getAuthHeaders } from '../lib/api';
 
 export default function InitPage({ onNavigate }: { onNavigate: (page: string) => void }) {
   const [demografi, setDemografi] = useState({ pria: 0, wanita: 0, lansia: 0, balita: 0 });
+  const [isLoading, setIsLoading] = useState(false);
 
   const totalPengungsi = demografi.pria + demografi.wanita + demografi.lansia + demografi.balita;
 
   const handleInputChange = (field: keyof typeof demografi, value: string) => {
-    const numValue = parseInt(value) || 0;
-    setDemografi(prev => ({ ...prev, [field]: numValue }));
+    setDemografi(prev => ({ ...prev, [field]: parseInt(value) || 0 }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onNavigate('dashboard'); 
+    setIsLoading(true);
+
+    try {
+      // Pada sistem offline-first asli, di sinilah Anda menyimpan ke PouchDB
+      // Berikut adalah implementasi direct API fallback
+      const payload = {
+        kib_16: "1234567890123456", // Mock KIB
+        name: "Posko Lapangan",
+        address: "Lokasi Bencana",
+        district: "Tangerang",
+        province: "Banten",
+        total_pengungsi: totalPengungsi,
+        count_balita: demografi.balita,
+        count_lansia: demografi.lansia,
+        count_perempuan: demografi.wanita,
+        count_pria: demografi.pria,
+        count_disabilitas: 0,
+        pj_phone: "080000000",
+        pj_name: "Petugas"
+      };
+
+      const response = await fetch(`${API_BASE_URL}/api/poskos`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) throw new Error("Gagal menyimpan data posko");
+      
+      const data = await response.json();
+      localStorage.setItem('active_posko_id', data.posko._id); // Simpan ID untuk request logistik
+      
+      onNavigate('dashboard');
+    } catch (err) {
+      alert("Error: " + err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -102,9 +140,10 @@ export default function InitPage({ onNavigate }: { onNavigate: (page: string) =>
           {/* Tombol diletakkan di bawah form */}
           <button 
             type="submit"
-            className="w-full bg-blue-700 text-white font-bold py-4 rounded-lg flex items-center justify-center gap-2 shadow-md hover:bg-blue-800 transition active:scale-95"
+            disabled={isLoading || totalPengungsi === 0}
+            className="w-full bg-blue-700 text-white font-bold py-4 rounded-lg flex items-center justify-center gap-2 shadow-md disabled:bg-gray-400"
           >
-            PROSES & BUKA DASHBOARD <ChevronRight className="w-5 h-5" />
+            {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : "PROSES & BUKA DASHBOARD"}
           </button>
 
         </form>
