@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { useMemo, useState, type ReactNode } from "react";
+import { Navigate, Outlet, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import {
   AppLayout,
   LogShieldSidebar,
@@ -30,12 +30,16 @@ import {
   YAxis,
 } from "recharts";
 import { AssetsPage } from "./pages/Assets";
+import { LandingPage } from "./pages/Landing";
 import { LogisticsPage } from "./pages/Logistics";
 import { LogisticsRequestPage } from "./pages/LogisticsRequest";
+import { LoginPage } from "./pages/Login";
 import { PersonnelPage } from "./pages/Personnel";
 import { PoskoPage } from "./pages/Posko";
 import { SettingsPage } from "./pages/Settings";
 import logoMark from "./assets/logo.svg";
+
+const AUTH_STORAGE_KEY = "logshield-authenticated";
 
 const weeklyStockData = [
   { day: "MON", kebutuhan: 420, persediaan: 360 },
@@ -239,7 +243,7 @@ const routes = [
     id: "dashboard",
     label: "Dashboard",
     icon: LayoutDashboard,
-    path: "/",
+    path: "/dashboard",
     element: <DashboardPage />,
   },
   {
@@ -279,15 +283,53 @@ const routes = [
   },
 ];
 
+function ProtectedLayout({
+  isAuthenticated,
+  sidebar,
+}: {
+  isAuthenticated: boolean;
+  sidebar: ReactNode;
+}) {
+  const location = useLocation();
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+
+  return (
+    <AppLayout sidebar={sidebar}>
+      <Outlet />
+    </AppLayout>
+  );
+}
+
 export default function App() {
   const location = useLocation();
   const navigate = useNavigate();
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+    return window.localStorage.getItem(AUTH_STORAGE_KEY) === "true";
+  });
   const activeId =
-    routes.find((route) =>
-      route.path === "/"
-        ? location.pathname === "/"
-        : location.pathname.startsWith(route.path)
-    )?.id ?? "dashboard";
+    routes.find((route) => location.pathname.startsWith(route.path))?.id ?? "dashboard";
+
+  const handleLogin = (redirectTo = "/dashboard") => {
+    setIsAuthenticated(true);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(AUTH_STORAGE_KEY, "true");
+    }
+    navigate(redirectTo, { replace: true });
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(AUTH_STORAGE_KEY);
+    }
+    navigate("/login", { replace: true });
+  };
 
   const sidebar = useMemo(
     () => (
@@ -304,6 +346,7 @@ export default function App() {
         }}
         onNewReport={() => {}}
         onSupportClick={() => {}}
+        onLogout={handleLogout}
         user={{ name: "Anakin", role: "Officer 742" }}
       />
     ),
@@ -311,13 +354,20 @@ export default function App() {
   );
 
   return (
-    <AppLayout sidebar={sidebar}>
-      <Routes>
+    <Routes>
+      <Route path="/" element={<LandingPage />} />
+      <Route
+        path="/login"
+        element={
+          isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage onLogin={handleLogin} />
+        }
+      />
+      <Route element={<ProtectedLayout isAuthenticated={isAuthenticated} sidebar={sidebar} />}>
         {routes.map((route) => (
           <Route key={route.id} path={route.path} element={route.element} />
         ))}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </AppLayout>
+      </Route>
+      <Route path="*" element={<Navigate to={isAuthenticated ? "/dashboard" : "/"} replace />} />
+    </Routes>
   );
 }

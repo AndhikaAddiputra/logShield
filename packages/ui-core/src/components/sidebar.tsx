@@ -4,6 +4,7 @@ import {
   FilePlus2,
   HelpCircle,
   RefreshCw,
+  LogOut,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
@@ -29,6 +30,7 @@ export interface LogShieldSidebarProps {
   onNewReport?: () => void;
   syncSlot?: ReactNode;
   onSupportClick?: () => void;
+  onLogout?: () => void;
   user: { name: string; role: string; avatarSrc?: string | null };
   className?: string;
 }
@@ -44,6 +46,7 @@ export function LogShieldSidebar({
   onNewReport,
   syncSlot,
   onSupportClick,
+  onLogout,
   user,
   className,
 }: LogShieldSidebarProps) {
@@ -156,6 +159,14 @@ export function LogShieldSidebar({
           >
             <HelpCircle className="size-3.5 shrink-0" aria-hidden />
             Support
+          </button>
+          <button
+            type="button"
+            onClick={onLogout}
+            className="flex items-center gap-2 rounded-ls-sm px-2 py-1.5 text-left text-ls-danger hover:bg-ls-danger-soft transition-colors"
+          >
+            <LogOut className="size-3.5 shrink-0" aria-hidden />
+            Logout
           </button>
         </div>
         <div className="flex items-center gap-3 rounded-ls-sm border border-ls-border bg-white px-3 py-2 shadow-sm">
