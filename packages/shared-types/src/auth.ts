@@ -45,18 +45,6 @@ export interface LoginResponse {
   couchdb: CouchdbCredentials;
 }
 
-export interface SignupRequestDoc {
-  _id: string;
-  type: "signup_request";
-  email: string;
-  name: string;
-  phone: string;
-  status: "pending" | "approved" | "rejected";
-  rejection_reason?: string;
-  created_at: string;
-  updated_at: string;
-}
-
 export interface ApprovePayload {
   role: "admin" | "koordinator" | "lapangan";
   kib_bencana_id: string;
