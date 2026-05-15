@@ -25,6 +25,8 @@ export const INDEX_FIELDS = [
   "district",
   "nik_lookup_hash",
   "reviewed_by",
+  "movement_type",
+  "source",
 ];
 
 const userRoles = ["admin", "koordinator", "lapangan"];
@@ -39,6 +41,8 @@ const requestStatuses = ["mendesak", "menunggu", "diproses", "selesai"];
 const requestPriorities = ["critical", "high", "normal", "low"];
 const assetCategories = ["sandang", "pangan", "papan", "lainnya"];
 const auditStatuses = ["sukses", "ditolak", "timeout", "error"];
+const stockMovementTypes = ["in", "out"];
+const stockMovementSources = ["manual", "distribution", "sensor"];
 
 export function validateLogShieldDocument(doc) {
   assertObject(doc, "document");
@@ -63,6 +67,8 @@ export function validateLogShieldDocument(doc) {
       return validateRequest(doc);
     case "asset":
       return validateAsset(doc);
+    case "stock_movement":
+      return validateStockMovement(doc);
     case "audit_log":
       return validateAuditLog(doc);
     default:
@@ -150,6 +156,62 @@ export function applySensorReadingToAsset(asset, reading, now = new Date()) {
   return next;
 }
 
+export function createPoskoDoc(payload, now = new Date()) {
+  assertObject(payload, "payload");
+  const doc = {
+    _id: `posko::${randomUUID()}`,
+    type: "posko",
+    kib_16: requiredString(payload.kib_16, "kib_16"),
+    name: requiredString(payload.name, "name"),
+    address: requiredString(payload.address, "address"),
+    province: requiredString(payload.province, "province"),
+    district: requiredString(payload.district, "district"),
+    total_pengungsi: requiredNumber(payload.total_pengungsi, "total_pengungsi"),
+    count_balita: requiredNumber(payload.count_balita, "count_balita"),
+    count_lansia: requiredNumber(payload.count_lansia, "count_lansia"),
+    count_perempuan: requiredNumber(payload.count_perempuan, "count_perempuan"),
+    count_pria: requiredNumber(payload.count_pria, "count_pria"),
+    count_disabilitas: requiredNumber(payload.count_disabilitas, "count_disabilitas"),
+    pj_name: requiredString(payload.pj_name, "pj_name"),
+    pj_phone: requiredString(payload.pj_phone, "pj_phone"),
+    status: payload.status || "active",
+    created_at: now.toISOString(),
+    updated_at: now.toISOString(),
+  };
+  validatePosko(doc);
+  return doc;
+}
+
+export function createStockMovementDoc(
+  {
+    warehouse_id,
+    commodity,
+    category,
+    quantity,
+    unit,
+    movement_type,
+    source,
+    created_by,
+  },
+  now = new Date()
+) {
+  const doc = {
+    _id: `stock_movement::${now.getTime()}::${randomUUID()}`,
+    type: "stock_movement",
+    warehouse_id,
+    commodity,
+    category,
+    quantity,
+    unit,
+    movement_type,
+    source,
+    created_by,
+    created_at: now.toISOString(),
+  };
+  validateStockMovement(doc);
+  return doc;
+}
+
 export function validateSignupInput({ email: emailValue, name, nik, password, phone, avatar_url }) {
   email(emailValue, "email");
   requiredString(name, "name");
@@ -186,12 +248,9 @@ function validateUser(doc) {
 }
 
 function validatePosko(doc) {
-  requireId(doc, /^posko::\d{16}$/);
+  requireId(doc, /^posko::[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
   exact(doc.type, "posko", "type");
   match(doc.kib_16, /^\d{16}$/, "kib_16");
-  if (doc._id !== `posko::${doc.kib_16}`) {
-    throw new ValidationError("_id must match kib_16");
-  }
   requiredString(doc.name, "name");
   requiredString(doc.address, "address");
   requiredString(doc.province, "province");
@@ -365,6 +424,21 @@ function validateAsset(doc) {
   return doc;
 }
 
+function validateStockMovement(doc) {
+  requireId(doc, /^stock_movement::\d+::[^:]+$/);
+  exact(doc.type, "stock_movement", "type");
+  requiredString(doc.warehouse_id, "warehouse_id");
+  requiredString(doc.commodity, "commodity");
+  enumValue(doc.category, assetCategories, "category");
+  requiredNumber(doc.quantity, "quantity");
+  enumValue(doc.unit, assetUnits, "unit");
+  enumValue(doc.movement_type, stockMovementTypes, "movement_type");
+  enumValue(doc.source, stockMovementSources, "source");
+  requiredString(doc.created_by, "created_by");
+  isoTimestamp(doc.created_at, "created_at");
+  return doc;
+}
+
 function validateAuditLog(doc) {
   requireId(doc, /^audit_log::\d+::[^:]+$/);
   exact(doc.type, "audit_log", "type");
@@ -404,8 +478,8 @@ function passwordValue(value, field) {
 function nullablePoskoId(value, field) {
   if (value === null) return null;
   requiredString(value, field);
-  if (!/^posko::\d{16}$/.test(value)) {
-    throw new ValidationError(`${field} must be null or posko::{kib_16}`);
+  if (!/^posko::[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) {
+    throw new ValidationError(`${field} must be null or posko::{uuid}`);
   }
 }
 

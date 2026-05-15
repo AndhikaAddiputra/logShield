@@ -1,5 +1,6 @@
 import cors from "cors";
 import express from "express";
+import multer from "multer";
 import {
   approveSignupRequest,
   authenticateRequest,
@@ -16,6 +17,8 @@ import { config } from "./config.js";
 import { bootstrapDatabase, checkCouchHealth, putDocument } from "./couchdb.js";
 import { startDistributionSyncMarker } from "./distribution-sync.js";
 import { ingestStockReading, startMqttIngestion } from "./mqtt.js";
+import { createPosko, importPoskosFromCsv, listPoskos } from "./poskos.js";
+import { addStock, getStockCategories, getStockSummary, getStockTrend } from "./stocks.js";
 import {
   createAuditLogDoc,
   validateLogShieldDocument,
@@ -23,6 +26,10 @@ import {
 } from "./document-schema.js";
 
 const app = express();
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 },
+});
 
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
@@ -150,6 +157,70 @@ app.post(
     }
   }
 );
+
+app.get("/api/poskos", authenticateRequest, async (_req, res, next) => {
+  try {
+    res.json(await listPoskos());
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/poskos", authenticateRequest, async (req, res, next) => {
+  try {
+    const result = await createPosko(req.body || {});
+    res.status(201).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post(
+  "/api/poskos/import-csv",
+  authenticateRequest,
+  upload.single("file"),
+  async (req, res, next) => {
+    try {
+      const result = await importPoskosFromCsv(req.file?.buffer);
+      res.status(result.failed > 0 ? 207 : 201).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+app.get("/api/stocks/summary", authenticateRequest, async (_req, res, next) => {
+  try {
+    res.json(await getStockSummary());
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/stocks/categories", authenticateRequest, async (_req, res, next) => {
+  try {
+    res.json(await getStockCategories());
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/stocks/trend", authenticateRequest, async (req, res, next) => {
+  try {
+    res.json(await getStockTrend(req.query.days));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/stocks", authenticateRequest, async (req, res, next) => {
+  try {
+    const result = await addStock(req.body || {}, req.auth);
+    res.status(201).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
 
 app.post("/api/documents/validate", (req, res, next) => {
   try {

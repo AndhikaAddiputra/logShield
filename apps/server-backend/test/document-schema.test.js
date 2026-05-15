@@ -2,9 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   createAuditLogDoc,
+  createPoskoDoc,
+  createStockMovementDoc,
   createStockReadingDoc,
   validateLogShieldDocument,
 } from "../src/document-schema.js";
+
+const POSKO_ID = "posko::550e8400-e29b-41d4-a716-446655440000";
 
 test("validates a PDF-aligned user document", () => {
   const doc = {
@@ -15,7 +19,7 @@ test("validates a PDF-aligned user document", () => {
     nik: "encrypted-nik-value",
     kib_bencana_id: "BNC-2026-JK-0001",
     role: "lapangan",
-    posko_id: "posko::1234567890123456",
+    posko_id: POSKO_ID,
     phone: "081234567890",
     avatar_url: "https://example.com/avatar.png",
     created_at: "2026-05-14T10:00:00.000Z",
@@ -67,7 +71,7 @@ test("rejects invalid user role", () => {
 
 test("validates a PDF-aligned posko document", () => {
   const doc = {
-    _id: "posko::1234567890123456",
+    _id: POSKO_ID,
     type: "posko",
     kib_16: "1234567890123456",
     name: "Posko Evakuasi Rajeg",
@@ -88,6 +92,34 @@ test("validates a PDF-aligned posko document", () => {
   };
 
   assert.equal(validateLogShieldDocument(doc), doc);
+});
+
+test("creates posko documents with generated ids and repeatable KIB", () => {
+  const input = {
+    kib_16: "1234567890123456",
+    name: "Posko Evakuasi Rajeg",
+    address: "Jl. Raya Rajeg",
+    province: "Banten",
+    district: "Kabupaten Tangerang",
+    total_pengungsi: 100,
+    count_balita: 10,
+    count_lansia: 12,
+    count_perempuan: 45,
+    count_pria: 43,
+    count_disabilitas: 3,
+    pj_name: "Athar",
+    pj_phone: "081234567890",
+  };
+
+  const first = createPoskoDoc(input, new Date("2026-05-14T10:00:00.000Z"));
+  const second = createPoskoDoc(input, new Date("2026-05-14T10:00:00.000Z"));
+
+  assert.match(first._id, /^posko::[0-9a-f-]{36}$/);
+  assert.match(second._id, /^posko::[0-9a-f-]{36}$/);
+  assert.notEqual(first._id, second._id);
+  assert.equal(first.kib_16, second.kib_16);
+  assert.equal(validateLogShieldDocument(first), first);
+  assert.equal(validateLogShieldDocument(second), second);
 });
 
 test("validates signup_request, auth_credential, and email_outbox documents", () => {
@@ -142,7 +174,7 @@ test("rejects invalid posko KIB", () => {
   assert.throws(
     () =>
       validateLogShieldDocument({
-        _id: "posko::123",
+        _id: POSKO_ID,
         type: "posko",
         kib_16: "123",
         name: "Posko",
@@ -161,7 +193,7 @@ test("rejects invalid posko KIB", () => {
         created_at: "2026-05-14T10:00:00.000Z",
         updated_at: "2026-05-14T10:00:00.000Z",
       }),
-    /_id has invalid format/
+    /kib_16 has invalid format/
   );
 });
 
@@ -169,7 +201,7 @@ test("rejects invalid posko status", () => {
   assert.throws(
     () =>
       validateLogShieldDocument({
-        _id: "posko::1234567890123456",
+        _id: POSKO_ID,
         type: "posko",
         kib_16: "1234567890123456",
         name: "Posko",
@@ -286,9 +318,9 @@ test("rejects prediction outside confidence interval", () => {
 
 test("accepts prediction ID with posko document id inside it", () => {
   const doc = {
-    _id: "prediction::posko::1234567890123456::beras::2026-05-15",
+    _id: `prediction::${POSKO_ID}::beras::2026-05-15`,
     type: "prediction",
-    posko_id: "posko::1234567890123456",
+    posko_id: POSKO_ID,
     commodity: "beras",
     prediction_date: "2026-05-15",
     predicted_kg: 100,
@@ -326,5 +358,24 @@ test("creates append-only audit_log document shape", () => {
   );
 
   assert.match(doc._id, /^audit_log::1778752800000::/);
+  assert.equal(validateLogShieldDocument(doc), doc);
+});
+
+test("creates append-only stock_movement document shape", () => {
+  const doc = createStockMovementDoc(
+    {
+      warehouse_id: "WH-JKT-001",
+      commodity: "beras",
+      category: "pangan",
+      quantity: 500,
+      unit: "kg",
+      movement_type: "in",
+      source: "manual",
+      created_by: "user::athar",
+    },
+    new Date("2026-05-14T10:00:00.000Z")
+  );
+
+  assert.match(doc._id, /^stock_movement::1778752800000::/);
   assert.equal(validateLogShieldDocument(doc), doc);
 });

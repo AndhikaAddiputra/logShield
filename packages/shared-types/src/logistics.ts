@@ -31,6 +31,7 @@ export type LogShieldDocumentType =
   | "prediction"
   | "request"
   | "asset"
+  | "stock_movement"
   | "audit_log";
 
 export interface CouchDocumentBase {
@@ -214,6 +215,20 @@ export interface AssetDoc extends CouchDocumentBase {
   updated_at: string;
 }
 
+export interface StockMovementDoc extends CouchDocumentBase {
+  _id: `stock_movement::${string}::${string}`;
+  type: "stock_movement";
+  warehouse_id: string;
+  commodity: string;
+  category: AssetCategory;
+  quantity: number;
+  unit: AssetUnit;
+  movement_type: "in" | "out";
+  source: "manual" | "distribution" | "sensor";
+  created_by: string;
+  created_at: string;
+}
+
 export interface AuditLogDoc extends CouchDocumentBase {
   _id: `audit_log::${string}::${string}`;
   type: "audit_log";
@@ -239,6 +254,7 @@ export type LogShieldDocument =
   | PredictionDoc
   | RequestDoc
   | AssetDoc
+  | StockMovementDoc
   | AuditLogDoc;
 
 export const LOGSHIELD_INDEX_FIELDS = [
@@ -266,14 +282,16 @@ export const LOGSHIELD_INDEX_FIELDS = [
   "district",
   "nik_lookup_hash",
   "reviewed_by",
+  "movement_type",
+  "source",
 ] as const;
 
 export function makeUserId(uuid: string) {
   return `user::${uuid}` as const;
 }
 
-export function makePoskoId(kib: Kib16) {
-  return `posko::${kib}` as const;
+export function makePoskoId(uuid: string) {
+  return `posko::${uuid}` as const;
 }
 
 export function makeSignupRequestId(uuid: string) {
@@ -314,6 +332,10 @@ export function makeRequestId(requestCode: string) {
 
 export function makeAssetId(warehouseId: string, commodity: string) {
   return `asset::${warehouseId}::${commodity}` as const;
+}
+
+export function makeStockMovementId(timestampMs: number | string, uuid: string) {
+  return `stock_movement::${timestampMs}::${uuid}` as const;
 }
 
 export function makeAuditLogId(timestampMs: number | string, uuid: string) {
