@@ -1,1 +1,1 @@
-{"root":["./src/app.tsx","./src/main.tsx","./src/vite-env.d.ts"],"version":"5.6.3"}
+{"root":["./src/app.tsx","./src/main.tsx","./src/vite-env.d.ts","./src/lib/api.ts","./src/pages/assets.tsx","./src/pages/landing.tsx","./src/pages/login.tsx","./src/pages/logistics.tsx","./src/pages/logisticsrequest.tsx","./src/pages/personnel.tsx","./src/pages/posko.tsx","./src/pages/settings.tsx","./src/pages/signup.tsx"],"version":"5.6.3"}

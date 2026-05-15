@@ -1,4 +1,9 @@
 import express from "express";
+import authRouter from "./routes/auth.js";
+import adminRouter from "./routes/admin.js";
+
+const app = express();
+const port = process.env.PORT || 4000;
 import cors from "cors";
 import {
   approveSignupRequest,
@@ -157,6 +162,11 @@ app.use((error, _req, res, _next) => {
   });
 });
 
+app.use("/api/auth", authRouter);
+app.use("/api/admin", adminRouter);
+
+app.listen(port, () => {
+  console.log(`[log-shield] API listening on :${port}`);
 app.listen(config.port, () => {
   console.log(`LogShield backend listening on port ${config.port}`);
   startMqttIngestion();
