@@ -109,7 +109,7 @@ export async function configureDatabaseAuth() {
   };
 }
 
-async function ensureCouchUser({ username, password, roles }) {
+export async function ensureCouchUser({ username, password, roles }) {
   const id = `org.couchdb.user:${username}`;
   let existing = null;
   try {
