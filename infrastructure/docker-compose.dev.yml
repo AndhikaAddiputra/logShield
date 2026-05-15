@@ -1,0 +1,99 @@
+services:
+  # CouchDB
+  couchdb:
+    image: couchdb:3.2
+    container_name: logshield-couchdb
+    ports:
+      - "5984:5984"
+    environment:
+      COUCHDB_USER: ${COUCHDB_USER:-admin}
+      COUCHDB_PASSWORD: ${COUCHDB_PASSWORD:-password}
+    volumes:
+      - couchdb_data:/opt/couchdb/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://${COUCHDB_USER:-admin}:${COUCHDB_PASSWORD:-password}@localhost:5984/_up"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - logshield_network
+    restart: unless-stopped
+
+  # MQTT Broker (Mosquitto)
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: logshield-mosquitto
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    environment:
+      ALLOW_ANONYMOUS: "true"
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_logs:/mosquitto/log
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -h localhost -t '$$SYS/broker/version' -C 1 -i healthcheck -W 3 >/dev/null"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - logshield_network
+    restart: unless-stopped
+
+  # Backend API (Node.js + Express)
+  backend:
+    build:
+      context: ../
+      dockerfile: apps/server-backend/Dockerfile
+    container_name: logshield-backend
+    ports:
+      - "4000:4000"
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      LOG_LEVEL: ${LOG_LEVEL:-debug}
+      PORT: 4000
+      COUCHDB_URL: http://couchdb:5984
+      COUCHDB_USER: ${COUCHDB_USER:-admin}
+      COUCHDB_PASSWORD: ${COUCHDB_PASSWORD:-password}
+      COUCHDB_DB_NAME: ${COUCHDB_DB_NAME:-logshield}
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-key-change-in-production}
+      JWT_EXPIRY: ${JWT_EXPIRY:-7d}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-your-32-byte-hex-key-for-aes256}
+      AUTH_HASH_SECRET: ${AUTH_HASH_SECRET:-your-nik-lookup-hmac-secret-change-in-production}
+      MQTT_BROKER_URL: mqtt://mosquitto:1883
+      MQTT_STOCK_TOPIC: ${MQTT_STOCK_TOPIC:-logshield/stock/+}
+      MQTT_USER: ${MQTT_USER:-}
+      MQTT_PASSWORD: ${MQTT_PASSWORD:-}
+      AI_ENGINE_URL: ${AI_ENGINE_URL:-http://localhost:8000}
+      DEV_LOGIN_EMAIL: ${DEV_LOGIN_EMAIL:-athar@athar.com}
+      DEV_LOGIN_USERNAME: ${DEV_LOGIN_USERNAME:-athar}
+      DEV_LOGIN_NIK: ${DEV_LOGIN_NIK:-1234123412341234}
+      DEV_LOGIN_PASSWORD: ${DEV_LOGIN_PASSWORD:-atharathar}
+    depends_on:
+      couchdb:
+        condition: service_healthy
+      mosquitto:
+        condition: service_healthy
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - logshield_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:4000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  logshield_network:
+    driver: bridge
+
+volumes:
+  couchdb_data:
+  mosquitto_data:
+  mosquitto_logs:
