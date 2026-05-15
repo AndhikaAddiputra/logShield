@@ -2,34 +2,27 @@ import { useMemo, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import {
   AppLayout,
-  Badge,
-  Button,
-  FilterBar,
   LogShieldSidebar,
   PageHeader,
-  Pagination,
-  SelectField,
   StatCard,
-  Table,
-  TableCell,
-  TableHead,
-  TableHeaderRow,
-  TableRow,
 } from "@log-shield/ui-core";
 import {
   AlertTriangle,
   Boxes,
+  ClipboardCheck,
   ClipboardList,
+  Filter,
   LayoutDashboard,
+  Settings,
   Package,
   Sparkles,
   Users,
   MapPin,
-  Settings,
 } from "lucide-react";
 import {
-  Bar,
-  BarChart,
+  CartesianGrid,
+  Line,
+  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -41,31 +34,52 @@ import { LogisticsRequestPage } from "./pages/LogisticsRequest";
 import { PersonnelPage } from "./pages/Personnel";
 import { PoskoPage } from "./pages/Posko";
 import { SettingsPage } from "./pages/Settings";
+import logoMark from "./assets/logo.svg";
 
-const chartDemo = [
-  { name: "Mon", kebutuhan: 400, persediaan: 320 },
-  { name: "Tue", kebutuhan: 380, persediaan: 340 },
-  { name: "Wed", kebutuhan: 420, persediaan: 300 },
+const weeklyStockData = [
+  { day: "MON", kebutuhan: 420, persediaan: 360 },
+  { day: "TUE", kebutuhan: 620, persediaan: 500 },
+  { day: "WED", kebutuhan: 760, persediaan: 300 },
+  { day: "THU", kebutuhan: 450, persediaan: 590 },
+  { day: "FRI", kebutuhan: 320, persediaan: 420 },
+  { day: "SAT", kebutuhan: 360, persediaan: 470 },
+  { day: "SUN", kebutuhan: 740, persediaan: 520 },
+];
+
+const regionalRows = [
+  { label: "Sandang", values: [18, 32, 24, 56, 22, 26, 52] },
+  { label: "Pangan", values: [24, 48, 60, 30, 20, 26, 36] },
+  { label: "Papan", values: [20, 88, 96, 72, 28, 22, 78] },
+  { label: "Lainnya", values: [26, 40, 54, 32, 30, 28, 64] },
+];
+
+const poskoLabels = [
+  "(NamaPosko)",
+  "(NamaPosko)",
+  "(NamaPosko)",
+  "(NamaPosko)",
+  "(NamaPosko)",
+  "(NamaPosko)",
+  "(NamaPosko)",
+];
+
+const vulnerableDistribution = [
+  { label: "Balita", value: 82, className: "bg-[#6478a9]" },
+  { label: "Lansia", value: 15, className: "bg-[#c8d2e6]" },
+  { label: "Ibu Hamil", value: 94, className: "bg-[#3f5b9e]" },
+  { label: "Disabilitas", value: 48, className: "bg-[#9daac4]" },
 ];
 
 function DashboardPage() {
-  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
 
   return (
     <>
-      <PageHeader title="Dashboard" onSearchChange={() => {}} showNotifications />
-      <FilterBar meta="Ringkasan wilayah aktif">
-        <SelectField defaultValue="all" className="min-w-[180px]">
-          <option value="all">Semua posko</option>
-        </SelectField>
-        <Button type="button" variant="primary" size="md">
-          Refresh
-        </Button>
-      </FilterBar>
+      <PageHeader title="Dashboard" searchValue={search} onSearchChange={setSearch} showNotifications />
 
       <div className="space-y-6 p-6">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatCard label="Total Posko" value="1,240" icon={ClipboardList} />
+          <StatCard label="Total Posko" value="1,240" icon={ClipboardCheck} />
           <StatCard
             label="Critical Items"
             value="42 Units"
@@ -86,19 +100,21 @@ function DashboardPage() {
         </div>
 
         <div className="rounded-ls-lg border border-ls-border bg-white p-5 shadow-ls">
-          <div className="mb-4 flex items-center justify-between gap-2">
+          <div className="mb-4 flex items-center justify-between gap-3">
             <h2 className="text-base font-semibold text-ls-navy">
               Daily Stock Weight per Item Category
             </h2>
-            <SelectField defaultValue="beras" className="w-44">
-              <option value="beras">Pangan — Beras</option>
-            </SelectField>
+            <div className="flex items-center gap-4 text-sm text-ls-navy">
+              <span>Pangan - Beras</span>
+              <Filter className="size-4" />
+            </div>
           </div>
           <div className="h-72 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartDemo}>
-                <XAxis dataKey="name" stroke="#64748b" fontSize={12} />
-                <YAxis stroke="#64748b" fontSize={12} />
+              <LineChart data={weeklyStockData} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
+                <CartesianGrid stroke="#eef2f7" vertical={false} />
+                <XAxis dataKey="day" stroke="#94a3b8" fontSize={11} />
+                <YAxis hide domain={[200, 800]} />
                 <Tooltip
                   contentStyle={{
                     background: "#fff",
@@ -106,57 +122,90 @@ function DashboardPage() {
                     borderRadius: 8,
                   }}
                 />
-                <Bar dataKey="kebutuhan" fill="#1a2b5d" name="Kebutuhan" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="persediaan" fill="#94a3b8" name="Persediaan" radius={[4, 4, 0, 0]} />
-              </BarChart>
+                <Line
+                  type="monotone"
+                  dataKey="kebutuhan"
+                  name="Kebutuhan"
+                  stroke="#184a87"
+                  strokeWidth={3}
+                  dot={false}
+                  activeDot={{ r: 4 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="persediaan"
+                  name="Persediaan"
+                  stroke="#b6c1d2"
+                  strokeWidth={3}
+                  strokeDasharray="6 6"
+                  dot={false}
+                  activeDot={{ r: 4 }}
+                />
+              </LineChart>
             </ResponsiveContainer>
+          </div>
+          <div className="mt-2 flex items-center gap-5 text-xs text-ls-muted">
+            <div className="flex items-center gap-2">
+              <span className="size-2 rounded-full bg-[#184a87]" />
+              <span>Kebutuhan</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="size-2 rounded-full bg-[#b6c1d2]" />
+              <span>Persediaan</span>
+            </div>
           </div>
         </div>
 
-        <div className="rounded-ls-lg border border-ls-border bg-white p-5 shadow-ls">
-          <h2 className="mb-4 text-base font-semibold text-ls-navy">
-            Contoh tabel personel
-          </h2>
-          <Table>
-            <thead>
-              <TableHeaderRow>
-                <TableHead>Nama</TableHead>
-                <TableHead>KIB</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Aksi</TableHead>
-              </TableHeaderRow>
-            </thead>
-            <tbody>
-              <TableRow>
-                <TableCell className="font-medium">Dewi Lestari</TableCell>
-                <TableCell>
-                  <Badge variant="muted">BNC-2024-JB-0142</Badge>
-                </TableCell>
-                <TableCell>
-                  <Badge variant="success" dot>
-                    Lapangan
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <div className="flex gap-2">
-                    <Button type="button" variant="outline" size="sm">
-                      Edit
-                    </Button>
-                    <Button type="button" variant="destructive" size="sm">
-                      Hapus
-                    </Button>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="rounded-ls-lg border border-ls-border bg-white p-5 shadow-ls">
+            <h2 className="mb-4 text-base font-semibold text-ls-navy">Regional Heatmap</h2>
+            <div className="space-y-1.5">
+              {regionalRows.map((row) => (
+                <div key={row.label} className="flex items-center gap-1.5">
+                  <span className="w-14 text-[10px] text-ls-muted">{row.label}</span>
+                  <div className="grid flex-1 grid-cols-7 gap-1.5">
+                    {row.values.map((value, index) => (
+                      <div
+                        key={`${row.label}-${index}`}
+                        className="h-8 rounded-sm bg-[#3f5b9e]"
+                        style={{ opacity: Math.max(0.14, value / 100) }}
+                      />
+                    ))}
                   </div>
-                </TableCell>
-              </TableRow>
-            </tbody>
-          </Table>
-          <Pagination
-            className="mt-4"
-            currentPage={page}
-            totalPages={8}
-            onPageChange={setPage}
-            summary="Menampilkan 7 dari 52 personel"
-          />
+                </div>
+              ))}
+            </div>
+            <div className="mt-2 grid grid-cols-[56px_1fr] items-start gap-1.5">
+              <span />
+              <div className="grid grid-cols-7 gap-1.5">
+                {poskoLabels.map((label, index) => (
+                  <span key={`${label}-${index}`} className="truncate text-[9px] text-ls-muted">
+                    {label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-ls-lg border border-ls-border bg-white p-5 shadow-ls">
+            <h2 className="mb-5 text-base font-semibold text-ls-navy">
+              Pemenuhan Distribusi Kelompok Rentan
+            </h2>
+            <div className="space-y-5">
+              {vulnerableDistribution.map((item) => (
+                <div key={item.label} className="grid grid-cols-[90px_1fr_28px] items-center gap-3">
+                  <span className="text-xs text-ls-muted">{item.label}</span>
+                  <div className="h-7 rounded-sm bg-slate-100">
+                    <div
+                      className={`h-7 rounded-sm ${item.className}`}
+                      style={{ width: `${item.value}%` }}
+                    />
+                  </div>
+                  <span className="text-[10px] text-ls-muted">{item.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -179,8 +228,8 @@ const routes = [
     id: "logistics",
     label: "Logistics",
     icon: Package,
-    path: "/logisticsRequests",
-    element: <LogisticsRequestPage />,
+    path: "/logistics",
+    element: <LogisticsPage />,
   },
   {
     id: "posko",
@@ -225,6 +274,8 @@ export default function App() {
   const sidebar = useMemo(
     () => (
       <LogShieldSidebar
+        brandName="LogShield"
+        brandLogoSrc={logoMark}
         productSubtitle="Disaster Response v1.2"
         navItems={routes.map(({ id, label, icon }) => ({ id, label, icon }))}
         activeId={activeId}

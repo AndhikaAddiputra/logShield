@@ -20,6 +20,9 @@ export interface SidebarNavItem {
 export interface LogShieldSidebarProps {
   /** e.g. Disaster Response v1.2 */
   productSubtitle: string;
+  brandName?: string;
+  brandLogoSrc?: string;
+  brandLogoAlt?: string;
   navItems: SidebarNavItem[];
   activeId: string;
   onNavigate?: (id: string) => void;
@@ -32,6 +35,9 @@ export interface LogShieldSidebarProps {
 
 export function LogShieldSidebar({
   productSubtitle,
+  brandName = "LogShield",
+  brandLogoSrc,
+  brandLogoAlt,
   navItems,
   activeId,
   onNavigate,
@@ -52,12 +58,30 @@ export function LogShieldSidebar({
       )}
     >
       <div className="relative border-b border-ls-sidebar-border px-5 py-6">
-        {!isCollapsed && (
-          <>
-            <p className="text-lg font-bold tracking-tight text-ls-navy">LOG-SHIELD</p>
-            <p className="mt-1 text-xs text-ls-muted">{productSubtitle}</p>
-          </>
-        )}
+        <div className="flex items-center gap-3 pr-8">
+          <div
+            className={cn(
+              "flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-ls-sm border border-ls-border bg-white",
+              isCollapsed && "mx-auto"
+            )}
+          >
+            {brandLogoSrc ? (
+              <img
+                src={brandLogoSrc}
+                alt={brandLogoAlt ?? brandName}
+                className="size-7 object-contain"
+              />
+            ) : (
+              <span className="text-sm font-bold text-ls-navy">LS</span>
+            )}
+          </div>
+          {!isCollapsed && (
+            <div className="min-w-0">
+              <p className="text-lg font-bold tracking-tight text-ls-navy">{brandName}</p>
+              <p className="mt-1 text-xs text-ls-muted">{productSubtitle}</p>
+            </div>
+          )}
+        </div>
         <button
           type="button"
           onClick={() => setIsCollapsed(!isCollapsed)}
