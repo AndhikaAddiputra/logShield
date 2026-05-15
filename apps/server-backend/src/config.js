@@ -4,6 +4,7 @@ export const config = {
   couchDbName: process.env.COUCHDB_DB_NAME || "logshield",
   couchUser: process.env.COUCHDB_USER || "admin",
   couchPassword: process.env.COUCHDB_PASSWORD || "password",
+  aiEngineUrl: stripTrailingSlash(process.env.AI_ENGINE_URL || "http://127.0.0.1:8000"),
   mqttBrokerUrl: process.env.MQTT_BROKER_URL || "mqtt://localhost:1883",
   mqttStockTopic: process.env.MQTT_STOCK_TOPIC || "logshield/stock/+",
   jwtSecret: process.env.JWT_SECRET || "dev-logshield-secret-change-me",

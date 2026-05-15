@@ -1,0 +1,63 @@
+from __future__ import annotations
+
+CANONICAL_COLUMNS = [
+    "date",
+    "kib_bencana_id",
+    "disaster_type",
+    "province",
+    "city",
+    "district",
+    "village",
+    "posko_id",
+    "posko_name",
+    "item_category",
+    "item_name",
+    "unit",
+    "total_pengungsi",
+    "total_kk",
+    "bayi",
+    "balita",
+    "anak",
+    "remaja",
+    "dewasa",
+    "lansia",
+    "ibu_hamil",
+    "ibu_menyusui",
+    "disabilitas",
+    "stock_in_qty",
+    "distributed_qty",
+    "requested_qty",
+    "current_stock_qty",
+    "target_need_qty",
+    "critical_stock_threshold",
+    "source_dataset",
+    "is_synthetic",
+]
+
+NUMERIC_COLUMNS = [
+    "total_pengungsi",
+    "total_kk",
+    "bayi",
+    "balita",
+    "anak",
+    "remaja",
+    "dewasa",
+    "lansia",
+    "ibu_hamil",
+    "ibu_menyusui",
+    "disabilitas",
+    "stock_in_qty",
+    "distributed_qty",
+    "requested_qty",
+    "current_stock_qty",
+    "target_need_qty",
+    "critical_stock_threshold",
+]
+
+IDENTITY_COLUMNS = [
+    "date",
+    "kib_bencana_id",
+    "posko_id",
+    "item_name",
+]
+

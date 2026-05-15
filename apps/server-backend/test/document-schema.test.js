@@ -342,6 +342,65 @@ test("accepts prediction ID with posko document id inside it", () => {
   assert.equal(validateLogShieldDocument(doc), doc);
 });
 
+test("validates synced AI recommendation and anomaly documents", () => {
+  const recommendation = {
+    _id: "ai_recommendation::1778752800000::abc::0001",
+    type: "ai_recommendation",
+    run_id: "1778752800000::abc",
+    forecast_date: "2026-05-15",
+    kib_bencana_id: "BNC-2026-JK-0001",
+    disaster_type: "banjir_longsor",
+    posko_id: "POSKO-001",
+    posko_name: "Posko Utama",
+    item_name: "beras",
+    unit: "kg",
+    recommended_qty: 120,
+    shortage_qty: 100,
+    coverage_days: 0.8,
+    risk_level: "kritis",
+    priority_score: 92.5,
+    trust_score: 0.82,
+    rationale_chips: ["Coverage stok kurang dari 1 hari."],
+    synced_at: "2026-05-14T10:00:00.000Z",
+  };
+  const anomaly = {
+    _id: "ai_anomaly::1778752800000::abc::0001",
+    type: "ai_anomaly",
+    run_id: "1778752800000::abc",
+    date: "2026-05-15",
+    kib_bencana_id: "BNC-2026-JK-0001",
+    disaster_type: "banjir_longsor",
+    posko_id: "POSKO-001",
+    posko_name: "Posko Utama",
+    item_name: "beras",
+    unit: "kg",
+    anomaly_type: "critical_stock",
+    severity: "high",
+    score: 0.95,
+    message: "Stok kritis.",
+    action_suggestion: "Restock segera.",
+    synced_at: "2026-05-14T10:00:00.000Z",
+  };
+
+  assert.equal(validateLogShieldDocument(recommendation), recommendation);
+  assert.equal(validateLogShieldDocument(anomaly), anomaly);
+});
+
+test("validates synced AI run summary document", () => {
+  const doc = {
+    _id: "ai_run_summary::1778752800000::abc",
+    type: "ai_run_summary",
+    status: "ready",
+    dataset: { rows: 195337 },
+    forecasting: { evaluated_series: 4321 },
+    recommendation_counts: { kritis: 10 },
+    anomaly_counts: { high: 5 },
+    synced_at: "2026-05-14T10:00:00.000Z",
+  };
+
+  assert.equal(validateLogShieldDocument(doc), doc);
+});
+
 test("creates append-only audit_log document shape", () => {
   const doc = createAuditLogDoc(
     {

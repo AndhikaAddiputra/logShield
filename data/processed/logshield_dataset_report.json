@@ -1,0 +1,22 @@
+{
+  "row_count": 195337,
+  "date_count": 197,
+  "date_min": "2024-04-20",
+  "date_max": "2026-01-02",
+  "posko_count": 316,
+  "item_count": 383,
+  "synthetic_rows": 194445,
+  "real_rows": 892,
+  "errors": [],
+  "error_count": 0,
+  "raw_row_count_before_collapse": 195401,
+  "collapsed_duplicate_rows": 64,
+  "source_files": [
+    "dataset/Banjir-Longsor/data_distribusi_final.csv",
+    "dataset/Banjir-Longsor/data_pengungsi_bnpb_final.csv",
+    "dataset/GempaBumi-tsunami/features_demografi.csv",
+    "dataset/GempaBumi-tsunami/targets_logistik.csv",
+    "dataset/Gunung-Meletus/logshield_gunung_meletus.csv"
+  ],
+  "output_csv": "data\\processed\\logshield_timeseries.csv"
+}
