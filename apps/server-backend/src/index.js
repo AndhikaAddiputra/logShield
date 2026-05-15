@@ -1,9 +1,4 @@
 import express from "express";
-import authRouter from "./routes/auth.js";
-import adminRouter from "./routes/admin.js";
-
-const app = express();
-const port = process.env.PORT || 4000;
 import cors from "cors";
 import {
   approveSignupRequest,
@@ -15,6 +10,7 @@ import {
   requireAdmin,
   submitSignup,
 } from "./auth.js";
+import { aiRequest, syncAiDashboard } from "./ai.js";
 import { config } from "./config.js";
 import { bootstrapDatabase, checkCouchHealth, putDocument } from "./couchdb.js";
 import { startDistributionSyncMarker } from "./distribution-sync.js";
@@ -36,6 +32,7 @@ app.get("/api/health", (_req, res) => {
     service: "logshield-backend",
     port: config.port,
     database: config.couchDbName,
+    ai_engine: config.aiEngineUrl,
   });
 });
 
@@ -54,6 +51,58 @@ app.post("/api/couchdb/bootstrap", async (_req, res, next) => {
     const devAdmin = await ensureDevAdmin();
     result.dev_admin = devAdmin;
     res.status(result.created ? 201 : 200).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/ai/summary", async (_req, res, next) => {
+  try {
+    res.json(await aiRequest("/summary"));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/ai/dashboard", async (req, res, next) => {
+  try {
+    const limit = clampLimit(req.query.limit, 10, 100);
+    res.json(await aiRequest(`/summary/dashboard?limit=${limit}`));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/ai/recommendations/top-critical", async (req, res, next) => {
+  try {
+    const limit = clampLimit(req.query.limit, 25, 100);
+    res.json(await aiRequest(`/recommendations/top-critical?limit=${limit}`));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/ai/anomalies/recent", async (req, res, next) => {
+  try {
+    const limit = clampLimit(req.query.limit, 25, 100);
+    res.json(await aiRequest(`/anomalies/recent?limit=${limit}`));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/ai/refresh", authenticateRequest, requireAdmin, async (_req, res, next) => {
+  try {
+    res.json(await aiRequest("/refresh", { method: "POST" }));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/ai/sync", authenticateRequest, requireAdmin, async (req, res, next) => {
+  try {
+    const limit = clampLimit(req.body?.limit, 50, 100);
+    res.status(201).json(await syncAiDashboard({ limit }));
   } catch (error) {
     next(error);
   }
@@ -162,13 +211,14 @@ app.use((error, _req, res, _next) => {
   });
 });
 
-app.use("/api/auth", authRouter);
-app.use("/api/admin", adminRouter);
-
-app.listen(port, () => {
-  console.log(`[log-shield] API listening on :${port}`);
 app.listen(config.port, () => {
   console.log(`LogShield backend listening on port ${config.port}`);
   startMqttIngestion();
   startDistributionSyncMarker();
 });
+
+function clampLimit(value, defaultValue, maxValue) {
+  const parsed = Number(value || defaultValue);
+  if (!Number.isFinite(parsed) || parsed < 1) return defaultValue;
+  return Math.min(Math.trunc(parsed), maxValue);
+}

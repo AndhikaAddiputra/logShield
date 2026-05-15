@@ -25,6 +25,12 @@ export const INDEX_FIELDS = [
   "district",
   "nik_lookup_hash",
   "reviewed_by",
+  "run_id",
+  "risk_level",
+  "severity",
+  "anomaly_type",
+  "forecast_date",
+  "date",
 ];
 
 const userRoles = ["admin", "koordinator", "lapangan"];
@@ -59,6 +65,12 @@ export function validateLogShieldDocument(doc) {
       return validateStockReading(doc);
     case "prediction":
       return validatePrediction(doc);
+    case "ai_run_summary":
+      return validateAiRunSummary(doc);
+    case "ai_recommendation":
+      return validateAiRecommendation(doc);
+    case "ai_anomaly":
+      return validateAiAnomaly(doc);
     case "request":
       return validateRequest(doc);
     case "asset":
@@ -324,6 +336,60 @@ function validatePrediction(doc) {
   return doc;
 }
 
+function validateAiRunSummary(doc) {
+  requireId(doc, /^ai_run_summary::\d+::[^:]+$/);
+  exact(doc.type, "ai_run_summary", "type");
+  requiredString(doc.status, "status");
+  assertObject(doc.dataset, "dataset");
+  assertObject(doc.forecasting, "forecasting");
+  assertObject(doc.recommendation_counts, "recommendation_counts");
+  assertObject(doc.anomaly_counts, "anomaly_counts");
+  isoTimestamp(doc.synced_at, "synced_at");
+  return doc;
+}
+
+function validateAiRecommendation(doc) {
+  requireId(doc, /^ai_recommendation::\d+::[^:]+::\d{4}$/);
+  exact(doc.type, "ai_recommendation", "type");
+  requiredString(doc.run_id, "run_id");
+  isoDate(doc.forecast_date, "forecast_date");
+  requiredString(doc.kib_bencana_id, "kib_bencana_id");
+  requiredString(doc.disaster_type, "disaster_type");
+  requiredString(doc.posko_id, "posko_id");
+  requiredString(doc.posko_name, "posko_name");
+  requiredString(doc.item_name, "item_name");
+  requiredString(doc.unit, "unit");
+  requiredNumber(doc.recommended_qty, "recommended_qty");
+  requiredNumber(doc.shortage_qty, "shortage_qty");
+  requiredNumber(doc.coverage_days, "coverage_days");
+  enumValue(doc.risk_level, ["aman", "waspada", "kritis"], "risk_level");
+  requiredNumber(doc.priority_score, "priority_score");
+  requiredNumber(doc.trust_score, "trust_score");
+  stringArray(doc.rationale_chips, "rationale_chips");
+  isoTimestamp(doc.synced_at, "synced_at");
+  return doc;
+}
+
+function validateAiAnomaly(doc) {
+  requireId(doc, /^ai_anomaly::\d+::[^:]+::\d{4}$/);
+  exact(doc.type, "ai_anomaly", "type");
+  requiredString(doc.run_id, "run_id");
+  isoDate(doc.date, "date");
+  requiredString(doc.kib_bencana_id, "kib_bencana_id");
+  requiredString(doc.disaster_type, "disaster_type");
+  requiredString(doc.posko_id, "posko_id");
+  requiredString(doc.posko_name, "posko_name");
+  requiredString(doc.item_name, "item_name");
+  requiredString(doc.unit, "unit");
+  requiredString(doc.anomaly_type, "anomaly_type");
+  enumValue(doc.severity, ["low", "medium", "high"], "severity");
+  requiredNumber(doc.score, "score");
+  requiredString(doc.message, "message");
+  requiredString(doc.action_suggestion, "action_suggestion");
+  isoTimestamp(doc.synced_at, "synced_at");
+  return doc;
+}
+
 function validateRequest(doc) {
   requireId(doc, /^request::REQ-\d{8}-\d{3}$/);
   exact(doc.type, "request", "type");
@@ -488,6 +554,14 @@ function assertObject(value, field) {
 function nullableObject(value, field) {
   if (value === null) return null;
   assertObject(value, field);
+}
+
+function stringArray(value, field) {
+  if (!Array.isArray(value)) {
+    throw new ValidationError(`${field} must be an array`);
+  }
+  value.forEach((item, index) => requiredString(item, `${field}.${index}`));
+  return value;
 }
 
 function isoDate(value, field) {
