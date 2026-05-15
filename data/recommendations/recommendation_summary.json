@@ -1,0 +1,108 @@
+{
+  "input_forecast": "data\\forecasting\\baseline_forecast_7d.csv",
+  "input_latest_state": "data\\processed\\logshield_timeseries.csv",
+  "recommendation_rows": 30247,
+  "total_recommended_qty": 11201151.42,
+  "risk_counts": {
+    "aman": 14214,
+    "kritis": 15946,
+    "waspada": 87
+  },
+  "disaster_counts": {
+    "gempa_bumi_tsunami": 20419,
+    "gunung_meletus": 9828
+  },
+  "top_priority": [
+    {
+      "forecast_date": "2025-12-22",
+      "kib_bencana_id": "BNC-2025-GT-0001",
+      "posko_name": "Tegalega Haurseah",
+      "item_name": "popok_bayi",
+      "risk_level": "kritis",
+      "priority_score": 98.27,
+      "recommended_qty": 13567.64
+    },
+    {
+      "forecast_date": "2024-12-22",
+      "kib_bencana_id": "BNC-2024-GM-LEWOTOBI",
+      "posko_name": "Desa Hikong",
+      "item_name": "air_bersih",
+      "risk_level": "kritis",
+      "priority_score": 96.21,
+      "recommended_qty": 48096.23
+    },
+    {
+      "forecast_date": "2024-12-23",
+      "kib_bencana_id": "BNC-2024-GM-LEWOTOBI",
+      "posko_name": "Desa Hikong",
+      "item_name": "air_bersih",
+      "risk_level": "kritis",
+      "priority_score": 96.21,
+      "recommended_qty": 48096.23
+    },
+    {
+      "forecast_date": "2024-12-24",
+      "kib_bencana_id": "BNC-2024-GM-LEWOTOBI",
+      "posko_name": "Desa Hikong",
+      "item_name": "air_bersih",
+      "risk_level": "kritis",
+      "priority_score": 96.21,
+      "recommended_qty": 48096.23
+    },
+    {
+      "forecast_date": "2024-12-25",
+      "kib_bencana_id": "BNC-2024-GM-LEWOTOBI",
+      "posko_name": "Desa Hikong",
+      "item_name": "air_bersih",
+      "risk_level": "kritis",
+      "priority_score": 96.21,
+      "recommended_qty": 48096.23
+    },
+    {
+      "forecast_date": "2024-12-26",
+      "kib_bencana_id": "BNC-2024-GM-LEWOTOBI",
+      "posko_name": "Desa Hikong",
+      "item_name": "air_bersih",
+      "risk_level": "kritis",
+      "priority_score": 96.21,
+      "recommended_qty": 48096.23
+    },
+    {
+      "forecast_date": "2024-12-27",
+      "kib_bencana_id": "BNC-2024-GM-LEWOTOBI",
+      "posko_name": "Desa Hikong",
+      "item_name": "air_bersih",
+      "risk_level": "kritis",
+      "priority_score": 96.21,
+      "recommended_qty": 48096.23
+    },
+    {
+      "forecast_date": "2024-12-28",
+      "kib_bencana_id": "BNC-2024-GM-LEWOTOBI",
+      "posko_name": "Desa Hikong",
+      "item_name": "air_bersih",
+      "risk_level": "kritis",
+      "priority_score": 96.21,
+      "recommended_qty": 48096.23
+    },
+    {
+      "forecast_date": "2024-12-22",
+      "kib_bencana_id": "BNC-2024-GM-LEWOTOBI",
+      "posko_name": "Posko Konga",
+      "item_name": "air_minum",
+      "risk_level": "kritis",
+      "priority_score": 94.2,
+      "recommended_qty": 4318.76
+    },
+    {
+      "forecast_date": "2024-12-23",
+      "kib_bencana_id": "BNC-2024-GM-LEWOTOBI",
+      "posko_name": "Posko Konga",
+      "item_name": "air_minum",
+      "risk_level": "kritis",
+      "priority_score": 94.2,
+      "recommended_qty": 4318.76
+    }
+  ],
+  "output": "data\\recommendations\\distribution_recommendations.csv"
+}
