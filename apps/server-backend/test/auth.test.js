@@ -1,45 +1,36 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { loginWithDummyUser } from "../src/auth.js";
+import {
+  decryptSecret,
+  encryptSecret,
+  hashNik,
+  normalizeEmail,
+  normalizeIdentifier,
+} from "../src/auth.js";
 
-test("dummy login accepts email", () => {
-  const result = loginWithDummyUser({
-    email: "athar@athar.com",
-    password: "atharathar",
+test("normalizes email identifiers", () => {
+  assert.equal(normalizeEmail("  ATHAR@ATHAR.COM "), "athar@athar.com");
+  assert.deepEqual(normalizeIdentifier("ATHAR@ATHAR.COM"), {
+    kind: "email",
+    value: "athar@athar.com",
   });
-
-  assert.equal(result.ok, true);
-  assert.equal(result.user.username, "athar");
-  assert.equal(result.couchdb.username, "athar");
-  assert.equal(result.couchdb.password, "atharathar");
-  assert.equal(typeof result.token, "string");
 });
 
-test("dummy login accepts username", () => {
-  const result = loginWithDummyUser({
-    username: "athar",
-    password: "atharathar",
-  });
+test("hashes NIK deterministically without returning raw NIK", () => {
+  const first = hashNik("1234123412341234");
+  const second = hashNik("1234123412341234");
 
-  assert.equal(result.ok, true);
+  assert.equal(first, second);
+  assert.notEqual(first, "1234123412341234");
+  assert.deepEqual(normalizeIdentifier("1234123412341234"), {
+    kind: "nik",
+    value: first,
+  });
 });
 
-test("dummy login accepts nik", () => {
-  const result = loginWithDummyUser({
-    nik: "1234123412341234",
-    password: "atharathar",
-  });
+test("encrypts and decrypts secrets", () => {
+  const encrypted = encryptSecret("1234123412341234");
 
-  assert.equal(result.ok, true);
-});
-
-test("dummy login rejects wrong password", () => {
-  assert.throws(
-    () =>
-      loginWithDummyUser({
-        email: "athar@athar.com",
-        password: "wrong",
-      }),
-    /Invalid credentials/
-  );
+  assert.notEqual(encrypted, "1234123412341234");
+  assert.equal(decryptSecret(encrypted), "1234123412341234");
 });

@@ -16,10 +16,16 @@ export type AssetCategory = "sandang" | "pangan" | "papan" | "lainnya";
 export type AuditStatus = "sukses" | "ditolak" | "timeout" | "error";
 export type UserRole = "admin" | "koordinator" | "lapangan";
 export type PoskoStatus = "active" | "inactive" | "closed";
+export type SignupRequestStatus = "pending" | "approved" | "rejected";
+export type AuthCredentialStatus = "active" | "inactive";
+export type EmailOutboxStatus = "queued" | "sent" | "failed";
 
 export type LogShieldDocumentType =
   | "user"
   | "posko"
+  | "signup_request"
+  | "auth_credential"
+  | "email_outbox"
   | "distribution"
   | "stock_reading"
   | "prediction"
@@ -68,6 +74,51 @@ export interface PoskoDoc extends CouchDocumentBase {
   status: PoskoStatus;
   created_at: string;
   updated_at: string;
+}
+
+export interface SignupRequestDoc extends CouchDocumentBase {
+  _id: `signup_request::${string}`;
+  type: "signup_request";
+  email: string;
+  name: string;
+  nik: string;
+  nik_lookup_hash: string;
+  phone: string;
+  avatar_url?: string;
+  status: SignupRequestStatus;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  rejection_reason: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AuthCredentialDoc extends CouchDocumentBase {
+  _id: `auth_credential::${string}`;
+  type: "auth_credential";
+  user_id: `user::${string}`;
+  email: string;
+  nik: string;
+  nik_lookup_hash: string;
+  password_hash: string;
+  status: AuthCredentialStatus;
+  couch_username: string;
+  couch_password_enc: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EmailOutboxDoc extends CouchDocumentBase {
+  _id: `email_outbox::${string}::${string}`;
+  type: "email_outbox";
+  to: string;
+  subject: string;
+  body: string;
+  status: EmailOutboxStatus;
+  related_signup_id: string | null;
+  related_user_id: string | null;
+  created_at: string;
+  sent_at: string | null;
 }
 
 export interface DistributionDoc extends CouchDocumentBase {
@@ -180,6 +231,9 @@ export interface AuditLogDoc extends CouchDocumentBase {
 export type LogShieldDocument =
   | UserDoc
   | PoskoDoc
+  | SignupRequestDoc
+  | AuthCredentialDoc
+  | EmailOutboxDoc
   | DistributionDoc
   | StockReadingDoc
   | PredictionDoc
@@ -210,6 +264,8 @@ export const LOGSHIELD_INDEX_FIELDS = [
   "kib_bencana_id",
   "province",
   "district",
+  "nik_lookup_hash",
+  "reviewed_by",
 ] as const;
 
 export function makeUserId(uuid: string) {
@@ -218,6 +274,18 @@ export function makeUserId(uuid: string) {
 
 export function makePoskoId(kib: Kib16) {
   return `posko::${kib}` as const;
+}
+
+export function makeSignupRequestId(uuid: string) {
+  return `signup_request::${uuid}` as const;
+}
+
+export function makeAuthCredentialId(userId: string) {
+  return `auth_credential::${userId}` as const;
+}
+
+export function makeEmailOutboxId(timestampMs: number | string, uuid: string) {
+  return `email_outbox::${timestampMs}::${uuid}` as const;
 }
 
 export function makeDistributionId(kib: Kib16, uuid: string) {

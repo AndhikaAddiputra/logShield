@@ -19,7 +19,7 @@ export interface PageHeaderProps {
 
 export function PageHeader({
   title,
-  searchPlaceholder = "Search assets...",
+  searchPlaceholder = "Search...",
   searchValue,
   onSearchChange,
   showSearch = true,

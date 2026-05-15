@@ -1,1 +1,5 @@
+<<<<<<< HEAD
 {"root":["./src/App.tsx","./src/main.tsx","./src/vite-env.d.ts","./src/hooks/useOnlineStatus.ts","./src/lib/pouch.ts","./src/pages/AppLayout.tsx","./src/pages/DashboardPage.tsx","./src/pages/InitPage.tsx","./src/pages/LoginPage.tsx","./src/pages/LogisticsPage.tsx","./src/pages/MobileDashboardPage.tsx","./src/pages/MobilePlaceholderPage.tsx","./src/pages/ProfilePage.tsx","./src/pages/RequestPage.tsx","./src/store/syncStore.ts","./src/types/pouchdb-modules.d.ts"],"version":"5.6.3"}
+=======
+{"root":["./src/app.tsx","./src/main.tsx","./src/vite-env.d.ts","./src/components/splashscreen.tsx","./src/hooks/useonlinestatus.ts","./src/lib/pouch.ts","./src/pages/applayout.tsx","./src/pages/dashboardpage.tsx","./src/pages/logisticspage.tsx","./src/pages/mobiledashboardpage.tsx","./src/pages/mobileplaceholderpage.tsx","./src/pages/profilepage.tsx","./src/store/syncstore.ts","./src/types/pouchdb-modules.d.ts"],"version":"5.6.3"}
+>>>>>>> 46ebfee9e30ab13e4d86175ae9f04a3c523e80a7

@@ -23,10 +23,15 @@ export const INDEX_FIELDS = [
   "kib_bencana_id",
   "province",
   "district",
+  "nik_lookup_hash",
+  "reviewed_by",
 ];
 
 const userRoles = ["admin", "koordinator", "lapangan"];
 const poskoStatuses = ["active", "inactive", "closed"];
+const signupRequestStatuses = ["pending", "approved", "rejected"];
+const authCredentialStatuses = ["active", "inactive"];
+const emailOutboxStatuses = ["queued", "sent", "failed"];
 const distributionUnits = ["kg", "liter", "pcs", "karton", "kit"];
 const assetUnits = ["kg", "pcs", "karton", "unit"];
 const vulnerableGroups = ["umum", "balita", "lansia", "ibu_hamil", "disabilitas"];
@@ -42,6 +47,12 @@ export function validateLogShieldDocument(doc) {
       return validateUser(doc);
     case "posko":
       return validatePosko(doc);
+    case "signup_request":
+      return validateSignupRequest(doc);
+    case "auth_credential":
+      return validateAuthCredential(doc);
+    case "email_outbox":
+      return validateEmailOutbox(doc);
     case "distribution":
       return validateDistribution(doc);
     case "stock_reading":
@@ -139,6 +150,25 @@ export function applySensorReadingToAsset(asset, reading, now = new Date()) {
   return next;
 }
 
+export function validateSignupInput({ email: emailValue, name, nik, password, phone, avatar_url }) {
+  email(emailValue, "email");
+  requiredString(name, "name");
+  match(nik, /^\d{16}$/, "nik");
+  passwordValue(password, "password");
+  requiredString(phone, "phone");
+  optionalString(avatar_url, "avatar_url");
+}
+
+export function validateApprovalInput({ role, kib_bencana_id, posko_id, email: emailValue, name, phone, avatar_url }) {
+  enumValue(role, userRoles, "role");
+  match(kib_bencana_id, /^BNC-\d{4}-[A-Z0-9]{2}-\d{4}$/, "kib_bencana_id");
+  nullablePoskoId(posko_id, "posko_id");
+  if (emailValue !== undefined) email(emailValue, "email");
+  optionalString(name, "name");
+  optionalString(phone, "phone");
+  optionalString(avatar_url, "avatar_url");
+}
+
 function validateUser(doc) {
   requireId(doc, /^user::[^:]+$/);
   exact(doc.type, "user", "type");
@@ -177,6 +207,54 @@ function validatePosko(doc) {
   enumValue(doc.status, poskoStatuses, "status");
   isoTimestamp(doc.created_at, "created_at");
   isoTimestamp(doc.updated_at, "updated_at");
+  return doc;
+}
+
+function validateSignupRequest(doc) {
+  requireId(doc, /^signup_request::[^:]+$/);
+  exact(doc.type, "signup_request", "type");
+  email(doc.email, "email");
+  requiredString(doc.name, "name");
+  encryptedNik(doc.nik, "nik");
+  requiredString(doc.nik_lookup_hash, "nik_lookup_hash");
+  requiredString(doc.phone, "phone");
+  optionalString(doc.avatar_url, "avatar_url");
+  enumValue(doc.status, signupRequestStatuses, "status");
+  nullableString(doc.reviewed_by, "reviewed_by");
+  nullableIsoTimestamp(doc.reviewed_at, "reviewed_at");
+  nullableString(doc.rejection_reason, "rejection_reason");
+  isoTimestamp(doc.created_at, "created_at");
+  isoTimestamp(doc.updated_at, "updated_at");
+  return doc;
+}
+
+function validateAuthCredential(doc) {
+  requireId(doc, /^auth_credential::user::[^:]+$/);
+  exact(doc.type, "auth_credential", "type");
+  match(doc.user_id, /^user::[^:]+$/, "user_id");
+  email(doc.email, "email");
+  encryptedNik(doc.nik, "nik");
+  requiredString(doc.nik_lookup_hash, "nik_lookup_hash");
+  requiredString(doc.password_hash, "password_hash");
+  enumValue(doc.status, authCredentialStatuses, "status");
+  requiredString(doc.couch_username, "couch_username");
+  requiredString(doc.couch_password_enc, "couch_password_enc");
+  isoTimestamp(doc.created_at, "created_at");
+  isoTimestamp(doc.updated_at, "updated_at");
+  return doc;
+}
+
+function validateEmailOutbox(doc) {
+  requireId(doc, /^email_outbox::\d+::[^:]+$/);
+  exact(doc.type, "email_outbox", "type");
+  email(doc.to, "to");
+  requiredString(doc.subject, "subject");
+  requiredString(doc.body, "body");
+  enumValue(doc.status, emailOutboxStatuses, "status");
+  nullableString(doc.related_signup_id, "related_signup_id");
+  nullableString(doc.related_user_id, "related_user_id");
+  isoTimestamp(doc.created_at, "created_at");
+  nullableIsoTimestamp(doc.sent_at, "sent_at");
   return doc;
 }
 
@@ -313,6 +391,13 @@ function encryptedNik(value, field) {
   requiredString(value, field);
   if (/^\d{16}$/.test(value)) {
     throw new ValidationError(`${field} must be AES-256 encrypted, not raw 16-digit NIK`);
+  }
+}
+
+function passwordValue(value, field) {
+  requiredString(value, field);
+  if (value.length < 8) {
+    throw new ValidationError(`${field} must be at least 8 characters`);
   }
 }
 

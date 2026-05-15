@@ -1,6 +1,17 @@
-import express from "express";
 import cors from "cors";
-import { loginWithDummyUser } from "./auth.js";
+import express from "express";
+import {
+  approveSignupRequest,
+  authenticateRequest,
+  ensureDevAdmin,
+  listPersonnel,
+  listSignupRequests,
+  loginUser,
+  rejectSignupRequest,
+  requireAdmin,
+  requireAdminOrKoordinator,
+  submitSignup,
+} from "./auth.js";
 import { config } from "./config.js";
 import { bootstrapDatabase, checkCouchHealth, putDocument } from "./couchdb.js";
 import { startDistributionSyncMarker } from "./distribution-sync.js";
@@ -37,19 +48,108 @@ app.get("/api/couchdb/health", async (_req, res, next) => {
 app.post("/api/couchdb/bootstrap", async (_req, res, next) => {
   try {
     const result = await bootstrapDatabase();
+    const devAdmin = await ensureDevAdmin();
+    result.dev_admin = devAdmin;
     res.status(result.created ? 201 : 200).json(result);
   } catch (error) {
     next(error);
   }
 });
 
-app.post("/api/auth/login", (req, res, next) => {
+app.post("/api/auth/signup", async (req, res, next) => {
   try {
-    res.json(loginWithDummyUser(req.body || {}));
+    const result = await submitSignup(req.body || {});
+    res.status(202).json(result);
   } catch (error) {
     next(error);
   }
 });
+
+app.post("/api/auth/login", async (req, res, next) => {
+  try {
+    res.json(await loginUser(req.body || {}));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get(
+  "/api/admin/signup-requests",
+  authenticateRequest,
+  requireAdmin,
+  async (req, res, next) => {
+    try {
+      res.json(await listSignupRequests({ status: req.query.status }));
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+app.post(
+  "/api/admin/signup-requests/:id/approve",
+  authenticateRequest,
+  requireAdmin,
+  async (req, res, next) => {
+    try {
+      res.json(await approveSignupRequest(req.params.id, req.body || {}, req.auth));
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+app.post(
+  "/api/admin/signup-requests/:id/reject",
+  authenticateRequest,
+  requireAdmin,
+  async (req, res, next) => {
+    try {
+      res.json(await rejectSignupRequest(req.params.id, req.body || {}, req.auth));
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+app.get(
+  "/api/personnel",
+  authenticateRequest,
+  requireAdminOrKoordinator,
+  async (req, res, next) => {
+    try {
+      res.json(await listPersonnel(req.auth));
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+app.post(
+  "/api/personnel/requests/:id/approve",
+  authenticateRequest,
+  requireAdmin,
+  async (req, res, next) => {
+    try {
+      res.json(await approveSignupRequest(req.params.id, req.body || {}, req.auth));
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+app.post(
+  "/api/personnel/requests/:id/reject",
+  authenticateRequest,
+  requireAdmin,
+  async (req, res, next) => {
+    try {
+      res.json(await rejectSignupRequest(req.params.id, req.body || {}, req.auth));
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 app.post("/api/documents/validate", (req, res, next) => {
   try {

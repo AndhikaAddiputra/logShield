@@ -90,6 +90,54 @@ test("validates a PDF-aligned posko document", () => {
   assert.equal(validateLogShieldDocument(doc), doc);
 });
 
+test("validates signup_request, auth_credential, and email_outbox documents", () => {
+  const signup = {
+    _id: "signup_request::abc",
+    type: "signup_request",
+    email: "athar@athar.com",
+    name: "Athar",
+    nik: "encrypted-nik",
+    nik_lookup_hash: "hash",
+    phone: "081234567890",
+    status: "pending",
+    reviewed_by: null,
+    reviewed_at: null,
+    rejection_reason: null,
+    created_at: "2026-05-14T10:00:00.000Z",
+    updated_at: "2026-05-14T10:00:00.000Z",
+  };
+  const credential = {
+    _id: "auth_credential::user::abc",
+    type: "auth_credential",
+    user_id: "user::abc",
+    email: "athar@athar.com",
+    nik: "encrypted-nik",
+    nik_lookup_hash: "hash",
+    password_hash: "$2a$12$hashed",
+    status: "active",
+    couch_username: "athar@athar.com",
+    couch_password_enc: "encrypted-password",
+    created_at: "2026-05-14T10:00:00.000Z",
+    updated_at: "2026-05-14T10:00:00.000Z",
+  };
+  const outbox = {
+    _id: "email_outbox::1778752800000::abc",
+    type: "email_outbox",
+    to: "athar@athar.com",
+    subject: "Approved",
+    body: "Your account is approved.",
+    status: "queued",
+    related_signup_id: "signup_request::abc",
+    related_user_id: "user::abc",
+    created_at: "2026-05-14T10:00:00.000Z",
+    sent_at: null,
+  };
+
+  assert.equal(validateLogShieldDocument(signup), signup);
+  assert.equal(validateLogShieldDocument(credential), credential);
+  assert.equal(validateLogShieldDocument(outbox), outbox);
+});
+
 test("rejects invalid posko KIB", () => {
   assert.throws(
     () =>
