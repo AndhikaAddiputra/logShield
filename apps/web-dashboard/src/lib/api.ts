@@ -104,3 +104,57 @@ export function clearAuth() {
   localStorage.removeItem("logshield-user");
   localStorage.removeItem("logshield-authenticated");
 }
+
+export interface PersonnelRow {
+  id: string;
+  source: "user" | "signup_request";
+  status: "active" | "pending";
+  nama_personel: string;
+  kib_bencana_id: string | null;
+  nik?: string | null;
+  role: string | null;
+  posko_assignment: string | null;
+  aksi: string[];
+}
+
+export interface PersonnelResponse {
+  ok: boolean;
+  viewer: {
+    user_id: string;
+    role: string;
+    posko_id: string | null;
+  };
+  columns: string[];
+  rows: PersonnelRow[];
+}
+
+export function fetchPersonnel() {
+  return request<PersonnelResponse>("/api/personnel");
+}
+
+export interface ApprovePayload {
+  role: string;
+  kib_bencana_id: string;
+  posko_id: string | null;
+  name?: string;
+  email?: string;
+  phone?: string;
+}
+
+export interface RejectPayload {
+  reason: string;
+}
+
+export function approveSignup(id: string, payload: ApprovePayload) {
+  return request(`/api/personnel/requests/${encodeURIComponent(id)}/approve`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function rejectSignup(id: string, payload: RejectPayload) {
+  return request(`/api/personnel/requests/${encodeURIComponent(id)}/reject`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}

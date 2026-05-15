@@ -399,6 +399,8 @@ function signUserToken(user) {
       email: user.email,
       roles: [user.role],
       role: user.role,
+      kib_bencana_id: user.kib_bencana_id,
+      posko_id: user.posko_id,
     },
     config.jwtSecret,
     { expiresIn: "7d" }
