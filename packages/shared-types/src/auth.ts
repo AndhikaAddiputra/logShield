@@ -45,7 +45,7 @@ export interface LoginResponse {
   couchdb: CouchdbCredentials;
 }
 
-export interface SignupRequestDoc {
+export interface SignupRequestSummary {
   _id: string;
   type: "signup_request";
   email: string;
