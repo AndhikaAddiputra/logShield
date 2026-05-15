@@ -8,6 +8,7 @@ import {
   Input 
 } from "@log-shield/ui-core";
 import { ChevronLeft, ShieldCheck, Lock, Mail, AlertCircle } from "lucide-react";
+import { login, storeAuth } from "../lib/api";
 import logoMark from "../assets/logo.svg";
 
 interface LoginPageProps {
@@ -29,9 +30,8 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     event.preventDefault();
     setError(null);
 
-    // Basic Validation
-    if (!email.includes("@")) {
-      setError("Masukkan alamat email yang valid.");
+    if (!email.includes("@") && email.length < 16) {
+      setError("Masukkan alamat email atau NIK yang valid.");
       return;
     }
 
@@ -41,27 +41,25 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     }
 
     setIsLoading(true);
-    
+
     try {
-      // Simulate network request for professional feel
-      await new Promise((resolve) => setTimeout(resolve, 1200));
+      const res = await login(email, password);
+      storeAuth(res.token, res.user);
       onLogin(redirectTo);
-    } catch (err) {
-      setError("Kredensial tidak valid. Silakan coba lagi.");
+    } catch (err: any) {
+      setError(err.message || "Kredensial tidak valid. Silakan coba lagi.");
       setIsLoading(false);
     }
   };
 
   return (
     <div className="relative min-h-screen bg-ls-surface flex flex-col items-center justify-center p-6 overflow-hidden">
-      {/* Background Decorative Elements */}
       <div className="absolute top-0 left-0 w-full h-full -z-10">
         <div className="absolute top-[-10%] left-[-10%] size-96 rounded-full bg-ls-accent/5 blur-3xl" />
         <div className="absolute bottom-[-10%] right-[-10%] size-96 rounded-full bg-ls-navy/5 blur-3xl" />
       </div>
 
       <div className="w-full max-w-[440px] space-y-6">
-        {/* Navigation */}
         <div className="flex justify-start">
           <button
             type="button"
@@ -73,10 +71,8 @@ export function LoginPage({ onLogin }: LoginPageProps) {
           </button>
         </div>
 
-        {/* Login Card */}
         <Card className="border-none shadow-2xl bg-white/90 backdrop-blur-sm">
           <CardContent className="p-8 space-y-8">
-            {/* Logo & Headers moved inside */}
             <div className="flex flex-col items-center gap-4 text-center">
               <div className="flex size-14 items-center justify-center rounded-2xl border border-ls-border bg-white shadow-ls-md">
                 <img src={logoMark} alt="LogShield" className="size-8 object-contain" />
@@ -89,7 +85,6 @@ export function LoginPage({ onLogin }: LoginPageProps) {
               </div>
             </div>
 
-            {/* Error Alert */}
             {error && (
               <div className="flex items-center gap-3 rounded-ls border border-ls-danger/20 bg-ls-danger-soft p-4 text-sm text-ls-danger animate-in fade-in slide-in-from-top-2 duration-300">
                 <AlertCircle className="size-5 shrink-0" />
@@ -106,14 +101,13 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                     </div>
                     <Input
                       id="email"
-                      type="email"
+                      type="text"
                       placeholder="nama@logshield.id"
                       className="pl-10 h-11 border-ls-border focus:border-ls-accent focus:ring-ls-accent/10 transition-all"
                       value={email}
                       onChange={(event) => setEmail(event.target.value)}
                       required
                       autoComplete="email"
-                      error={!!error && !email.includes("@")}
                     />
                   </div>
                 </Field>
@@ -132,7 +126,6 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                       onChange={(event) => setPassword(event.target.value)}
                       required
                       autoComplete="current-password"
-                      error={!!error && password.length < 6}
                     />
                   </div>
                   <div className="mt-2 text-right">
@@ -171,12 +164,20 @@ export function LoginPage({ onLogin }: LoginPageProps) {
           </CardContent>
         </Card>
 
-        {/* Footer Info */}
         <p className="text-center text-xs text-ls-muted">
-          Belum memiliki akses? <br />
-          <button className="mt-1 font-semibold text-ls-navy hover:underline">
-            Hubungi Administrator Sistem
-          </button>
+          Belum memiliki akun? <br />
+          <div className="mt-1 flex items-center justify-center gap-4">
+            <button 
+              className="font-semibold text-ls-navy hover:underline"
+              onClick={() => navigate("/signup")}
+            >
+              Daftar Sekarang
+            </button>
+            <span className="text-ls-border">•</span>
+            <button className="font-semibold text-ls-navy hover:underline">
+              Hubungi Administrator
+            </button>
+          </div>
         </p>
       </div>
     </div>

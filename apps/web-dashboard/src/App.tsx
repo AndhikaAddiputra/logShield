@@ -34,12 +34,13 @@ import { LandingPage } from "./pages/Landing";
 import { LogisticsPage } from "./pages/Logistics";
 import { LogisticsRequestPage } from "./pages/LogisticsRequest";
 import { LoginPage } from "./pages/Login";
+import { SignupPage } from "./pages/Signup";
 import { PersonnelPage } from "./pages/Personnel";
 import { PoskoPage } from "./pages/Posko";
 import { SettingsPage } from "./pages/Settings";
+import { getStoredToken, getStoredUser, clearAuth } from "./lib/api";
+import type { UserProfile } from "./lib/api";
 import logoMark from "./assets/logo.svg";
-
-const AUTH_STORAGE_KEY = "logshield-authenticated";
 
 const weeklyStockData = [
   { day: "MON", kebutuhan: 420, persediaan: 360 },
@@ -306,28 +307,22 @@ function ProtectedLayout({
 export default function App() {
   const location = useLocation();
   const navigate = useNavigate();
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    if (typeof window === "undefined") {
-      return false;
-    }
-    return window.localStorage.getItem(AUTH_STORAGE_KEY) === "true";
+  const [user, setUser] = useState<UserProfile | null>(() => {
+    return getStoredUser();
   });
+  const isAuthenticated = !!user && !!getStoredToken();
   const activeId =
     routes.find((route) => location.pathname.startsWith(route.path))?.id ?? "dashboard";
 
   const handleLogin = (redirectTo = "/dashboard") => {
-    setIsAuthenticated(true);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(AUTH_STORAGE_KEY, "true");
-    }
+    const currentUser = getStoredUser();
+    setUser(currentUser);
     navigate(redirectTo, { replace: true });
   };
 
   const handleLogout = () => {
-    setIsAuthenticated(false);
-    if (typeof window !== "undefined") {
-      window.localStorage.removeItem(AUTH_STORAGE_KEY);
-    }
+    clearAuth();
+    setUser(null);
     navigate("/login", { replace: true });
   };
 
@@ -347,7 +342,7 @@ export default function App() {
         onNewReport={() => {}}
         onSupportClick={() => {}}
         onLogout={handleLogout}
-        user={{ name: "Anakin", role: "Officer 742" }}
+        user={{ name: user?.name || "User", role: user?.role || "Unknown" }}
       />
     ),
     [activeId, navigate]
@@ -362,6 +357,7 @@ export default function App() {
           isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage onLogin={handleLogin} />
         }
       />
+      <Route path="/signup" element={<SignupPage />} />
       <Route element={<ProtectedLayout isAuthenticated={isAuthenticated} sidebar={sidebar} />}>
         {routes.map((route) => (
           <Route key={route.id} path={route.path} element={route.element} />

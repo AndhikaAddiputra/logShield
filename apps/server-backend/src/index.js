@@ -1,8 +1,10 @@
 import cors from "cors";
 import express from "express";
+import authRouter from "./routes/auth.js";
+import adminRouter from "./routes/admin.js";
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 4000;
 
 app.use(cors());
 app.use(express.json());
@@ -15,11 +17,9 @@ app.get("/health", (_req, res) => {
   });
 });
 
-/**
- * JWT-protected routes for coordinator actions will mount here.
- * PouchDB ↔ CouchDB sync from mobile typically hits CouchDB directly;
- * this service can issue tokens or proxy admin operations.
- */
+app.use("/api/auth", authRouter);
+app.use("/api/admin", adminRouter);
+
 app.listen(port, () => {
   console.log(`[log-shield] API listening on :${port}`);
 });
