@@ -1,27 +1,29 @@
-import { useEffect } from "react";
-import { createLocalDb, startCouchReplication } from "./lib/pouch";
-import AppLayout from "./pages/AppLayout";
-import { useSyncStore } from "./store/syncStore";
+import { useState } from 'react';
+import AppLayout from './pages/AppLayout';
+import LoginPage from './pages/LoginPage';
+import PoskoInitPage from './pages/InitPage';
 
 export default function App() {
-  const remoteUrl = import.meta.env.VITE_COUCHDB_URL;
+  const [currentPage, setCurrentPage] = useState('login');
 
-  useEffect(() => {
-    const local = createLocalDb();
-    if (!remoteUrl) {
-      useSyncStore.getState().setFromReplication({
-        status: "paused",
-        detail:
-          "Variabel VITE_COUCHDB_URL belum diatur - hanya mode lokal tanpa replikasi.",
-      });
-      return;
+  const renderScreen = () => {
+    switch (currentPage) {
+      case 'login':
+        return <LoginPage onNavigate={setCurrentPage} />;
+      case 'inisialisasi-posko':
+        return <PoskoInitPage onNavigate={setCurrentPage} />;
+      case 'req':
+      case 'dashboard':
+      case 'logistik':
+      case 'profil':
+      default:
+        return <AppLayout currentPage={currentPage} onNavigate={setCurrentPage} />;
     }
+  };
 
-    const handle = startCouchReplication(local, remoteUrl);
-    return () => {
-      handle.cancel();
-    };
-  }, [remoteUrl]);
-
-  return <AppLayout />;
+  return (
+    <div className="w-full h-full">
+      {renderScreen()}
+    </div>
+  );
 }

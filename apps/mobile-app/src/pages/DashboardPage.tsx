@@ -1,4 +1,4 @@
-import { RefreshCw, Droplet, FileText, CheckCircle } from 'lucide-react';
+import { RefreshCw, Utensils, Shirt, Tent } from 'lucide-react';
 
 export default function DashboardPage() {
   return (
@@ -19,56 +19,50 @@ export default function DashboardPage() {
           Rajeg Timur - Posko Evakuasi
         </div>
 
-        {/* Kartu Metrik */}
-        <div className="space-y-4 mb-6">
-          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden">
-            <div className="flex justify-between items-start mb-2">
-              <span className="text-xs font-bold text-gray-500 tracking-wider">PENYIMPANAN AIR</span>
-              <Droplet className="w-5 h-5 text-blue-500" />
+        <h3 className="font-black text-lg text-gray-800 mb-4 tracking-tight">PREDIKSI KEBUTUHAN 72 JAM</h3>
+
+        {/* Kumpulan Kartu Prediksi */}
+        <div className="space-y-4 mb-8">
+          
+          {/* 1. Card Pangan & Air */}
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-orange-100 relative overflow-hidden">
+            <div className="flex justify-between items-start mb-3">
+              <span className="text-xs font-black text-orange-600 tracking-widest uppercase">Pangan & Air</span>
+              <div className="bg-orange-50 p-2 rounded-lg">
+                <Utensils className="w-5 h-5 text-orange-500" />
+              </div>
             </div>
-            <div className="text-4xl font-black mb-3">844 <span className="text-lg text-gray-400 font-bold">L</span></div>
-            <div className="w-full bg-gray-200 h-2 rounded-full"><div className="bg-blue-900 h-2 rounded-full w-[80%]"></div></div>
+            <p className="text-sm font-medium text-gray-700 leading-relaxed">
+              Berdasarkan model demografi aktif, estimasi kebutuhan mendesak mencapai <span className="font-bold text-orange-600">2.532 porsi</span> ransum makanan dan <span className="font-bold text-orange-600">1.688 liter</span> air bersih. Stok lokal saat ini diprediksi habis dalam 18 jam.
+            </p>
           </div>
 
-          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden">
-             <div className="flex justify-between items-start mb-2">
-              <span className="text-xs font-bold text-gray-500 tracking-wider">RANSUM</span>
-              <FileText className="w-5 h-5 text-blue-500" />
+          {/* 2. Card Sandang */}
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-blue-100 relative overflow-hidden">
+            <div className="flex justify-between items-start mb-3">
+              <span className="text-xs font-black text-blue-600 tracking-widest uppercase">Sandang & Sanitasi</span>
+              <div className="bg-blue-50 p-2 rounded-lg">
+                <Shirt className="w-5 h-5 text-blue-500" />
+              </div>
             </div>
-            <div className="text-4xl font-black mb-3">1,240 <span className="text-lg text-gray-400 font-bold">Porsi</span></div>
-             <div className="w-full bg-gray-200 h-2 rounded-full"><div className="bg-blue-900 h-2 rounded-full w-[60%]"></div></div>
+            <p className="text-sm font-medium text-gray-700 leading-relaxed">
+              Prioritas tinggi untuk pengadaan <span className="font-bold text-blue-600">120 paket selimut</span> yang difokuskan pada lansia dan balita. Sistem menyarankan penambahan <span className="font-bold text-blue-600">80 hygiene kit</span> (pembalut dan popok) secepatnya.
+            </p>
           </div>
-        </div>
 
-        {/* Aksi Cepat */}
-        <div className="bg-gray-100 p-4 rounded-xl mb-8">
-          <p className="text-xs font-bold text-gray-600 tracking-wider mb-3">AKSI LANGSUNG LAPANGAN</p>
-          <button className="w-full bg-blue-700 text-white font-bold py-4 rounded-lg flex items-center justify-center gap-2 shadow-md">
-            <FileText className="w-5 h-5" /> TAMBAH SUMBER DAYA
-          </button>
-        </div>
+          {/* 3. Card Papan */}
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-teal-100 relative overflow-hidden">
+            <div className="flex justify-between items-start mb-3">
+              <span className="text-xs font-black text-teal-600 tracking-widest uppercase">Papan & Shelter</span>
+              <div className="bg-teal-50 p-2 rounded-lg">
+                <Tent className="w-5 h-5 text-teal-500" />
+              </div>
+            </div>
+            <p className="text-sm font-medium text-gray-700 leading-relaxed">
+              Kapasitas rasio tenda komunal terdeteksi <span className="font-bold text-teal-600">overload 15%</span>. Diperlukan segera <span className="font-bold text-teal-600">3 unit tenda peleton</span> tambahan dan 150 matras tidur isolasi untuk menekan laju penularan penyakit.
+            </p>
+          </div>
 
-        {/* Recent Logs */}
-        <h3 className="font-black text-lg mb-4">RECENT LOGS</h3>
-        <div className="space-y-3">
-          {/* Log Item 1 */}
-          <div className="bg-gray-50 border border-gray-100 p-3 rounded-lg flex items-center gap-4">
-            <span className="text-xs font-bold text-gray-400">12:45</span>
-            <div className="flex-1">
-              <p className="text-sm font-bold text-gray-800">PERMINTAAN LSH-01 DIBUAT</p>
-              <p className="text-xs text-gray-500">400L Water / 50 Food Units</p>
-            </div>
-            <CheckCircle className="w-5 h-5 text-green-600" />
-          </div>
-          {/* Log Item 2 */}
-          <div className="bg-gray-50 border border-gray-100 p-3 rounded-lg flex items-center gap-4">
-            <span className="text-xs font-bold text-gray-400">11:20</span>
-            <div className="flex-1">
-              <p className="text-sm font-bold text-gray-800">KALIBRASI SENSOR PERANGKAT</p>
-              <p className="text-xs text-gray-500">Cell ID: LC-009 Reset</p>
-            </div>
-            <CheckCircle className="w-5 h-5 text-green-600" />
-          </div>
         </div>
       </div>
     </div>
