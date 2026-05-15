@@ -28,7 +28,7 @@ export default function AppLayout({ currentPage, onNavigate }: AppLayoutProps) {
       <main className="flex-1 overflow-y-auto pb-20">
         {currentPage === 'dashboard' && <DashboardPage />}
         {currentPage === 'logistik' && <LogisticsPage onNavigate={onNavigate} />}
-        {currentPage === 'profil' && <ProfilePage />}
+        {currentPage === 'profil' && <ProfilePage onNavigate={onNavigate} />}
         {currentPage === 'req' && <RequestPage onNavigate={onNavigate} />}
       </main>
 

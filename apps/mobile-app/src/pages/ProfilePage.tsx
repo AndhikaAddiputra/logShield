@@ -1,6 +1,6 @@
 import { User, Hash } from 'lucide-react';
 
-export default function ProfilePage() {
+export default function ProfilePage({ onNavigate }: { onNavigate: (page: string) => void }) {
   return (
     <div className="p-5 flex flex-col h-full">
       <h2 className="text-3xl font-black text-blue-900 tracking-tight mb-8">PROFIL</h2>
@@ -37,9 +37,12 @@ export default function ProfilePage() {
       </div>
 
       <div className="mt-auto pt-10">
-        <button className="w-full bg-blue-700 text-white font-bold py-4 rounded-lg shadow-md hover:bg-blue-800 transition tracking-widest uppercase">
-          Log Out
-        </button>
+        <button 
+            onClick={() => onNavigate('login')} 
+            className="w-full bg-blue-700 text-white font-bold py-4 rounded-lg flex items-center justify-center gap-2 shadow-md hover:bg-blue-800 transition active:scale-95"
+          >
+            Log Out
+          </button>
       </div>
     </div>
   );
