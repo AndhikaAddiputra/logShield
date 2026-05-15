@@ -19,6 +19,8 @@ export type PoskoStatus = "active" | "inactive" | "closed";
 export type SignupRequestStatus = "pending" | "approved" | "rejected";
 export type AuthCredentialStatus = "active" | "inactive";
 export type EmailOutboxStatus = "queued" | "sent" | "failed";
+export type AiRiskLevel = "aman" | "waspada" | "kritis";
+export type AiAnomalySeverity = "low" | "medium" | "high";
 
 export type LogShieldDocumentType =
   | "user"
@@ -29,6 +31,9 @@ export type LogShieldDocumentType =
   | "distribution"
   | "stock_reading"
   | "prediction"
+  | "ai_run_summary"
+  | "ai_recommendation"
+  | "ai_anomaly"
   | "request"
   | "asset"
   | "audit_log";
@@ -177,6 +182,57 @@ export interface PredictionDoc extends CouchDocumentBase {
   created_at: string;
 }
 
+export interface AiRunSummaryDoc extends CouchDocumentBase {
+  _id: `ai_run_summary::${string}::${string}`;
+  type: "ai_run_summary";
+  status: string;
+  dataset: Record<string, unknown>;
+  forecasting: Record<string, unknown>;
+  recommendation_counts: Record<string, unknown>;
+  anomaly_counts: Record<string, unknown>;
+  synced_at: string;
+}
+
+export interface AiRecommendationDoc extends CouchDocumentBase {
+  _id: `ai_recommendation::${string}::${string}::${string}`;
+  type: "ai_recommendation";
+  run_id: string;
+  forecast_date: string;
+  kib_bencana_id: string;
+  disaster_type: string;
+  posko_id: string;
+  posko_name: string;
+  item_name: string;
+  unit: string;
+  recommended_qty: number;
+  shortage_qty: number;
+  coverage_days: number;
+  risk_level: AiRiskLevel;
+  priority_score: number;
+  trust_score: number;
+  rationale_chips: string[];
+  synced_at: string;
+}
+
+export interface AiAnomalyDoc extends CouchDocumentBase {
+  _id: `ai_anomaly::${string}::${string}::${string}`;
+  type: "ai_anomaly";
+  run_id: string;
+  date: string;
+  kib_bencana_id: string;
+  disaster_type: string;
+  posko_id: string;
+  posko_name: string;
+  item_name: string;
+  unit: string;
+  anomaly_type: string;
+  severity: AiAnomalySeverity;
+  score: number;
+  message: string;
+  action_suggestion: string;
+  synced_at: string;
+}
+
 export interface RequestItem {
   commodity: string;
   quantity: number;
@@ -237,6 +293,9 @@ export type LogShieldDocument =
   | DistributionDoc
   | StockReadingDoc
   | PredictionDoc
+  | AiRunSummaryDoc
+  | AiRecommendationDoc
+  | AiAnomalyDoc
   | RequestDoc
   | AssetDoc
   | AuditLogDoc;
@@ -266,6 +325,12 @@ export const LOGSHIELD_INDEX_FIELDS = [
   "district",
   "nik_lookup_hash",
   "reviewed_by",
+  "run_id",
+  "risk_level",
+  "severity",
+  "anomaly_type",
+  "forecast_date",
+  "date",
 ] as const;
 
 export function makeUserId(uuid: string) {
