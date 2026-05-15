@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Badge,
   Button,
@@ -11,107 +11,38 @@ import {
   TableHeaderRow,
   TableRow,
 } from "@log-shield/ui-core";
+import { Plus, RefreshCw } from "lucide-react";
+import {
+  type RequestRow,
+  completeRequest,
+  fetchRequests,
+  processRequest,
+} from "../lib/api";
 
-const logisticsRequests = [
-  {
-    id: "REG-20246015-001",
-    title: "Posko Cianjur A",
-    location: "Cianjur, Jawa Barat",
-    status: "Mendesak",
-    statusColor: "danger" as const,
-    date: "15 April 2024",
-    time: "08:32 WIB",
-    items: [
-      { name: "Beras", quantity: "500 KG", keterangan: "Stok ±3 hari" },
-      { name: "Selimut", quantity: "200 Pcs", keterangan: "Tambahan pengunji baru" },
-      { name: "Air Mineral", quantity: "300 Karton", keterangan: "Kebutuhan harian" },
-    ],
-    actionLabel: "Proses Request",
-  },
-  {
-    id: "REG-20249015-002",
-    title: "Posko Garut B",
-    location: "Garut, Jawa Barat",
-    status: "Diproses",
-    statusColor: "success" as const,
-    date: "15 April 2024",
-    time: "07:14 WIB",
-    items: [
-      { name: "Pakaian Dewasa", quantity: "150 Pcs", keterangan: "Ukuran campur" },
-      { name: "Mie Instan", quantity: "100 Karton", keterangan: "Stok darurat" },
-      { name: "Obat P3K", quantity: "50 Kit", keterangan: "Perlengkapan medis dasar" },
-    ],
-    actionLabel: "Sedang Diproses",
-    actionDisabled: true,
-  },
-  {
-    id: "REG-20243014-008",
-    title: "Posko Sukabumi C",
-    location: "Sukabumi, Jawa Barat",
-    status: "Selesai",
-    statusColor: "info" as const,
-    date: "14 April 2024",
-    time: "15:45 WIB",
-    items: [
-      { name: "Tanda Penganggal", quantity: "10 Unit", keterangan: "Kebutuhan 5 orang" },
-      { name: "Kayu Triplek", quantity: "500 Pcs", keterangan: "Partisisan shelter" },
-    ],
-    actionLabel: "✓ Selesai",
-    actionDisabled: true,
-  },
-  {
-    id: "REG-20249010-003",
-    title: "Posko Bandung D",
-    location: "Bandung, Jawa Barat",
-    status: "Menunggu",
-    statusColor: "warning" as const,
-    date: "19 April 2024",
-    time: "09:08 WIB",
-    items: [
-      { name: "Susu Formula", quantity: "80 Kaleng", keterangan: "Untuk bayi 0-12 bulan" },
-      { name: "Obat Diare", quantity: "200 Strip", keterangan: "Kasus mengingat" },
-    ],
-    actionLabel: "Proses Request",
-  },
-];
+const statusBadge: Record<string, "danger" | "warning" | "success" | "info"> = {
+  danger: "danger",
+  warning: "warning",
+  success: "success",
+  info: "info",
+};
 
-interface LogisticsRequestItem {
-  name: string;
-  quantity: string;
-  keterangan: string;
-}
-
-interface LogisticsRequestData {
-  id: string;
-  title: string;
-  location: string;
-  status: string;
-  statusColor: "danger" | "success" | "info" | "warning";
-  date: string;
-  time: string;
-  items: LogisticsRequestItem[];
-  actionLabel: string;
-  actionDisabled?: boolean;
-}
-
-function LogisticsRequestCard({ request }: { request: LogisticsRequestData }) {
-  const variantMap = {
-    danger: "danger" as const,
-    success: "success" as const,
-    info: "info" as const,
-    warning: "warning" as const,
-  };
-
+function LogisticsRequestCard({
+  request,
+  onAction,
+}: {
+  request: RequestRow;
+  onAction: (id: string, action: "process" | "complete") => void;
+}) {
   return (
     <div className="rounded-ls-lg border border-ls-border bg-white p-5 shadow-ls">
       <div className="mb-4 flex items-start justify-between">
         <div className="flex-1">
-          <div className="text-xs text-ls-muted">{request.id}</div>
+          <div className="text-xs text-ls-muted">{request.request_code}</div>
           <h3 className="text-base font-semibold text-ls-navy">{request.title}</h3>
           <p className="text-sm text-ls-muted">{request.location}</p>
         </div>
-        <Badge variant={variantMap[request.statusColor]} dot>
-          {request.status}
+        <Badge variant={statusBadge[request.status_color] || "muted"} dot>
+          {request.status_label}
         </Badge>
       </div>
 
@@ -138,15 +69,22 @@ function LogisticsRequestCard({ request }: { request: LogisticsRequestData }) {
 
       <div className="flex items-center justify-between border-t border-ls-border pt-4">
         <div className="text-xs text-ls-muted">
-          {request.date} • {request.time}
+          {request.date} &bull; {request.time}
         </div>
         <Button
           type="button"
-          variant={request.actionDisabled ? "outline" : "primary"}
+          variant={request.action_disabled ? "outline" : "primary"}
           size="md"
-          disabled={request.actionDisabled}
+          disabled={request.action_disabled}
+          onClick={() => {
+            if (request.status === "diproses") {
+              onAction(request.id, "complete");
+            } else {
+              onAction(request.id, "process");
+            }
+          }}
         >
-          {request.actionLabel}
+          {request.action_label}
         </Button>
       </div>
     </div>
@@ -155,46 +93,116 @@ function LogisticsRequestCard({ request }: { request: LogisticsRequestData }) {
 
 export function LogisticsRequestPage() {
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+
+  const [data, setData] = useState<RequestRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const params: Record<string, string | number> = { limit: 100 };
+      if (statusFilter !== "all") params.status = statusFilter;
+      if (search) params.search = search;
+      if (dateFrom) params.date_from = dateFrom;
+      if (dateTo) params.date_to = dateTo;
+
+      const res = await fetchRequests(params as any);
+      setData(res.rows);
+    } catch (err: any) {
+      setError(err.message || "Gagal memuat request");
+    } finally {
+      setLoading(false);
+    }
+  }, [statusFilter, search, dateFrom, dateTo]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const handleAction = async (id: string, action: "process" | "complete") => {
+    try {
+      if (action === "process") {
+        await processRequest(id);
+      } else {
+        await completeRequest(id);
+      }
+      loadData();
+    } catch (err: any) {
+      alert(err.message || "Gagal memproses request");
+    }
+  };
 
   return (
     <>
       <PageHeader
         title="Logistics Request"
+        searchPlaceholder="Cari request..."
+        searchValue={search}
         onSearchChange={setSearch}
         showNotifications
       />
-      <FilterBar meta="">
+
+      <FilterBar meta={`${data.length} Request`}>
         <input
-          type="text"
-          placeholder="Nama Barang"
+          type="date"
+          value={dateFrom}
+          onChange={(e) => setDateFrom(e.target.value)}
           className="rounded-ls-md border border-ls-border bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ls-primary"
         />
         <input
-          type="text"
-          placeholder="Nama Posko"
+          type="date"
+          value={dateTo}
+          onChange={(e) => setDateTo(e.target.value)}
           className="rounded-ls-md border border-ls-border bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ls-primary"
         />
-        <SelectField defaultValue="all" className="min-w-[180px]">
-          <option value="all">Tanggal</option>
-          <option value="today">Hari Ini</option>
-          <option value="week">Minggu Ini</option>
-          <option value="month">Bulan Ini</option>
+        <SelectField
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="min-w-[160px]"
+        >
+          <option value="all">Semua Status</option>
+          <option value="mendesak">Mendesak</option>
+          <option value="menunggu">Menunggu</option>
+          <option value="diproses">Diproses</option>
+          <option value="selesai">Selesai</option>
         </SelectField>
-        <Button type="button" variant="primary" size="md">
+        <Button
+          type="button"
+          variant="outline"
+          size="md"
+          leftIcon={<RefreshCw className="size-4" />}
+          onClick={loadData}
+        >
           Refresh
         </Button>
       </FilterBar>
 
       <div className="space-y-4 p-6">
-        <div className="grid gap-4 sm:grid-cols-2">
-          {logisticsRequests.map((request) => (
-            <LogisticsRequestCard key={request.id} request={request} />
-          ))}
-        </div>
+        {loading ? (
+          <div className="flex items-center justify-center py-20 text-ls-muted">Memuat data...</div>
+        ) : error ? (
+          <div className="flex flex-col items-center gap-4 py-20">
+            <p className="text-ls-danger">{error}</p>
+            <Button onClick={loadData} variant="outline" size="sm">Coba Lagi</Button>
+          </div>
+        ) : data.length === 0 ? (
+          <div className="flex items-center justify-center py-20 text-ls-muted">Tidak ada request</div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2">
+            {data.map((request) => (
+              <LogisticsRequestCard key={request.id} request={request} onAction={handleAction} />
+            ))}
+          </div>
+        )}
       </div>
 
       <p className="border-t border-ls-border px-6 py-3 text-center text-xs text-ls-muted">
-        LOG-SHIELD • Logistics Request • Komponen dari @log-shield/ui-core
+        LOG-SHIELD &bull; Logistics Request &bull; Komponen dari @log-shield/ui-core
       </p>
     </>
   );
