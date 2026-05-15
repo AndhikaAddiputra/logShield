@@ -333,6 +333,8 @@ export const LOGSHIELD_INDEX_FIELDS = [
   "target_type",
   "target_id",
   "user_id",
+  "submitted_by",
+  "processed_by",
   "email",
   "nik",
   "role",

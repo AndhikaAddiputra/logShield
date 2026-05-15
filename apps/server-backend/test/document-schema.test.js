@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   createAuditLogDoc,
   createPoskoDoc,
+  createRequestDoc,
   createStockMovementDoc,
   createStockReadingDoc,
   validateLogShieldDocument,
@@ -313,6 +314,50 @@ test("rejects prediction outside confidence interval", () => {
         created_at: "2026-05-14T10:00:00.000Z",
       }),
     /predicted_kg/
+  );
+});
+
+test("creates and validates a logistics request document", () => {
+  const doc = createRequestDoc(
+    {
+      request_code: "REQ-20260515-001",
+      posko_id: POSKO_ID,
+      submitted_by: "user::athar",
+      status: "mendesak",
+      priority: "critical",
+      items: [
+        {
+          commodity: "Beras",
+          quantity: 500,
+          unit: "kg",
+          note: "Stok +-3 hari",
+        },
+      ],
+    },
+    new Date("2026-05-15T13:32:00.000Z")
+  );
+
+  assert.equal(doc._id, "request::REQ-20260515-001");
+  assert.equal(doc.processed_by, null);
+  assert.equal(doc.processed_at, null);
+  assert.equal(validateLogShieldDocument(doc), doc);
+});
+
+test("rejects invalid request fields", () => {
+  assert.throws(
+    () =>
+      createRequestDoc(
+        {
+          request_code: "REG-20260515-001",
+          posko_id: POSKO_ID,
+          submitted_by: "user::athar",
+          items: [],
+          status: "open",
+          priority: "urgent",
+        },
+        new Date("2026-05-15T13:32:00.000Z")
+      ),
+    /_id has invalid format|items must be a non-empty array|status must be one of|priority must be one of/
   );
 });
 

@@ -11,6 +11,7 @@ import {
   rejectSignupRequest,
   requireAdmin,
   requirePersonnelViewer,
+  requireRequestProcessor,
   submitSignup,
 } from "./auth.js";
 import { aiRequest, syncAiDashboard } from "./ai.js";
@@ -19,6 +20,14 @@ import { bootstrapDatabase, checkCouchHealth, putDocument } from "./couchdb.js";
 import { startDistributionSyncMarker } from "./distribution-sync.js";
 import { ingestStockReading, startMqttIngestion } from "./mqtt.js";
 import { createPosko, importPoskosFromCsv, listPoskos } from "./poskos.js";
+import {
+  completeRequest,
+  createRequest,
+  getRequestById,
+  listRequests,
+  patchRequest,
+  processRequest,
+} from "./requests.js";
 import { addStock, getStockCategories, getStockSummary, getStockTrend } from "./stocks.js";
 import {
   createAuditLogDoc,
@@ -275,6 +284,69 @@ app.post("/api/stocks", authenticateRequest, async (req, res, next) => {
     next(error);
   }
 });
+
+app.get("/api/requests", authenticateRequest, async (req, res, next) => {
+  try {
+    res.json(await listRequests(req.query));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/requests/:id", authenticateRequest, async (req, res, next) => {
+  try {
+    res.json(await getRequestById(req.params.id));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/requests", authenticateRequest, async (req, res, next) => {
+  try {
+    res.status(201).json(await createRequest(req.body || {}, req.auth));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post(
+  "/api/requests/:id/process",
+  authenticateRequest,
+  requireRequestProcessor,
+  async (req, res, next) => {
+    try {
+      res.json(await processRequest(req.params.id, req.auth));
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+app.post(
+  "/api/requests/:id/complete",
+  authenticateRequest,
+  requireRequestProcessor,
+  async (req, res, next) => {
+    try {
+      res.json(await completeRequest(req.params.id, req.auth));
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+app.patch(
+  "/api/requests/:id",
+  authenticateRequest,
+  requireRequestProcessor,
+  async (req, res, next) => {
+    try {
+      res.json(await patchRequest(req.params.id, req.body || {}, req.auth));
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 app.post("/api/documents/validate", (req, res, next) => {
   try {

@@ -17,6 +17,8 @@ export const INDEX_FIELDS = [
   "target_type",
   "target_id",
   "user_id",
+  "submitted_by",
+  "processed_by",
   "email",
   "nik",
   "role",
@@ -221,6 +223,35 @@ export function createStockMovementDoc(
     created_at: now.toISOString(),
   };
   validateStockMovement(doc);
+  return doc;
+}
+
+export function createRequestDoc(
+  {
+    request_code,
+    posko_id,
+    submitted_by,
+    items,
+    status = "menunggu",
+    priority = "normal",
+  },
+  now = new Date()
+) {
+  const doc = {
+    _id: `request::${request_code}`,
+    type: "request",
+    request_code,
+    posko_id,
+    submitted_by,
+    items,
+    status,
+    priority,
+    processed_by: null,
+    processed_at: null,
+    created_at: now.toISOString(),
+    updated_at: now.toISOString(),
+  };
+  validateRequest(doc);
   return doc;
 }
 

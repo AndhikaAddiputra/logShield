@@ -327,6 +327,14 @@ export function requirePersonnelViewer(req, _res, next) {
   return next();
 }
 
+export function requireRequestProcessor(req, _res, next) {
+  const roles = req.auth?.roles || [];
+  if (!roles.some((role) => ["admin", "koordinator"].includes(role))) {
+    return next(new AuthError("Admin or koordinator role required", 403));
+  }
+  return next();
+}
+
 export function normalizeEmail(value) {
   return String(value || "").trim().toLowerCase();
 }
