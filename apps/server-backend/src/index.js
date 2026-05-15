@@ -1,18 +1,15 @@
-import express from "express";
-import authRouter from "./routes/auth.js";
-import adminRouter from "./routes/admin.js";
-
-const app = express();
-const port = process.env.PORT || 4000;
 import cors from "cors";
+import express from "express";
 import {
   approveSignupRequest,
   authenticateRequest,
   ensureDevAdmin,
+  listPersonnel,
   listSignupRequests,
   loginUser,
   rejectSignupRequest,
   requireAdmin,
+  requireAdminOrKoordinator,
   submitSignup,
 } from "./auth.js";
 import { config } from "./config.js";
@@ -115,6 +112,45 @@ app.post(
   }
 );
 
+app.get(
+  "/api/personnel",
+  authenticateRequest,
+  requireAdminOrKoordinator,
+  async (req, res, next) => {
+    try {
+      res.json(await listPersonnel(req.auth));
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+app.post(
+  "/api/personnel/requests/:id/approve",
+  authenticateRequest,
+  requireAdmin,
+  async (req, res, next) => {
+    try {
+      res.json(await approveSignupRequest(req.params.id, req.body || {}, req.auth));
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+app.post(
+  "/api/personnel/requests/:id/reject",
+  authenticateRequest,
+  requireAdmin,
+  async (req, res, next) => {
+    try {
+      res.json(await rejectSignupRequest(req.params.id, req.body || {}, req.auth));
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 app.post("/api/documents/validate", (req, res, next) => {
   try {
     validateLogShieldDocument(req.body);
@@ -162,11 +198,6 @@ app.use((error, _req, res, _next) => {
   });
 });
 
-app.use("/api/auth", authRouter);
-app.use("/api/admin", adminRouter);
-
-app.listen(port, () => {
-  console.log(`[log-shield] API listening on :${port}`);
 app.listen(config.port, () => {
   console.log(`LogShield backend listening on port ${config.port}`);
   startMqttIngestion();

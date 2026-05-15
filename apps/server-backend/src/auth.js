@@ -103,6 +103,82 @@ export async function listSignupRequests({ status } = {}) {
   };
 }
 
+export async function listPersonnel(viewer) {
+  const viewerRole = viewer.role || (viewer.roles?.[0]);
+  const isAdmin = viewerRole === "admin";
+
+  if (isAdmin) {
+    const usersResult = await findDocuments({
+      selector: { type: "user", role: { $ne: "admin" } },
+      sort: [{ created_at: "desc" }],
+    });
+
+    const signupResult = await findDocuments({
+      selector: { type: "signup_request", status: "pending" },
+      sort: [{ created_at: "desc" }],
+    });
+
+    const rows = [
+      ...(usersResult.docs || []).map((u) => ({
+        id: u._id,
+        source: "user",
+        status: "active",
+        nama_personel: u.name,
+        kib_bencana_id: u.kib_bencana_id || null,
+        nik: u.nik || null,
+        role: u.role,
+        posko_assignment: u.posko_id || null,
+        aksi: [],
+      })),
+      ...(signupResult.docs || []).map((s) => ({
+        id: s._id,
+        source: "signup_request",
+        status: "pending",
+        nama_personel: s.name,
+        kib_bencana_id: null,
+        nik: null,
+        role: null,
+        posko_assignment: null,
+        aksi: ["approve", "reject"],
+      })),
+    ];
+
+    return {
+      ok: true,
+      viewer: { user_id: viewer.user_id, role: viewerRole, posko_id: null },
+      columns: ["Nama Personel", "KIB (Bencana ID)", "NIK", "Role", "Posko Assignment", "Aksi"],
+      rows,
+    };
+  }
+
+  const usersResult = await findDocuments({
+    selector: {
+      type: "user",
+      role: "lapangan",
+      kib_bencana_id: viewer.kib_bencana_id,
+    },
+    sort: [{ created_at: "desc" }],
+  });
+
+  const rows = (usersResult.docs || []).map((u) => ({
+    id: u._id,
+    source: "user",
+    status: "active",
+    nama_personel: u.name,
+    kib_bencana_id: u.kib_bencana_id || null,
+    role: u.role,
+    posko_assignment: u.posko_id || null,
+    aksi: [],
+  }));
+
+  return {
+    ok: true,
+    viewer: { user_id: viewer.user_id, role: viewerRole, posko_id: viewer.posko_id || null },
+    columns: ["Nama Personel", "KIB (Bencana ID)", "Role", "Posko Assignment", "Aksi"],
+    rows,
+  };
+}
+
 export async function approveSignupRequest(id, input, actor, now = new Date()) {
   validateApprovalInput(input);
   const request = await getDocument(id);
@@ -283,6 +359,14 @@ export function requireAdmin(req, _res, next) {
   return next();
 }
 
+export function requireAdminOrKoordinator(req, _res, next) {
+  const roles = req.auth?.roles || [];
+  if (!roles.includes("admin") && !roles.includes("koordinator")) {
+    return next(new AuthError("Admin or koordinator role required", 403));
+  }
+  return next();
+}
+
 export function normalizeEmail(value) {
   return String(value || "").trim().toLowerCase();
 }
@@ -355,6 +439,8 @@ function signUserToken(user) {
       email: user.email,
       roles: [user.role],
       role: user.role,
+      kib_bencana_id: user.kib_bencana_id,
+      posko_id: user.posko_id,
     },
     config.jwtSecret,
     { expiresIn: "7d" }
