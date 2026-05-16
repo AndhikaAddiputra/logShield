@@ -3,6 +3,31 @@ import { RefreshCw, Utensils, Shirt, Tent, AlertTriangle } from 'lucide-react';
 import { fetchAiDashboard, fetchStockSummary } from '../lib/api';
 import type { AiDashboardResponse, StockSummary } from '../lib/api';
 
+function numberValue(value: unknown, fallback = 0) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function rationaleChips(value: unknown) {
+  if (Array.isArray(value)) {
+    return value.map((chip) => {
+      if (typeof chip === 'string') return chip;
+      if (chip && typeof chip === 'object') {
+        const objectChip = chip as { narrative?: unknown; feature?: unknown };
+        return String(objectChip.narrative ?? objectChip.feature ?? '');
+      }
+      return String(chip ?? '');
+    }).filter(Boolean);
+  }
+  if (typeof value === 'string') {
+    return value
+      .split(/[;,|]/)
+      .map((chip) => chip.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
 export default function DashboardPage() {
   const [summary, setSummary] = useState<StockSummary | null>(null);
   const [aiData, setAiData] = useState<AiDashboardResponse | null>(null);
@@ -32,6 +57,7 @@ export default function DashboardPage() {
 
   const topCritical = aiData?.recommendations?.top_critical || [];
   const riskCounts = aiData?.recommendations?.risk_counts || {};
+  const criticalCount = riskCounts.kritis ?? riskCounts.critical;
   const recentAnomalies = aiData?.anomalies?.recent || [];
 
   return (
@@ -87,14 +113,21 @@ export default function DashboardPage() {
           <>
             <h3 className="font-black text-lg text-gray-800 mb-4 tracking-tight">
               KRITIS · REKOMENDASI PRIORITAS
-              {riskCounts.critical && (
+              {criticalCount != null && (
                 <span className="ml-2 text-xs font-bold text-red-500">
-                  ({riskCounts.critical} kritis)
+                  ({criticalCount} kritis)
                 </span>
               )}
             </h3>
             <div className="space-y-3 mb-8">
-              {topCritical.slice(0, 5).map((rec: any, idx: number) => (
+              {topCritical.slice(0, 5).map((rec: any, idx: number) => {
+                const recommendedQty = numberValue(rec.recommended_qty);
+                const shortageQty = numberValue(rec.shortage_qty);
+                const coverageDays = numberValue(rec.coverage_days);
+                const priorityScore = numberValue(rec.priority_score);
+                const chips = rationaleChips(rec.rationale_chips);
+
+                return (
                 <div key={idx} className="bg-white p-4 rounded-xl shadow-sm border border-red-100">
                   <div className="flex justify-between items-start mb-2">
                     <span className="text-xs font-black text-red-600 tracking-widest uppercase">
@@ -105,19 +138,19 @@ export default function DashboardPage() {
                     </span>
                   </div>
                   <p className="text-sm font-medium text-gray-700">
-                    {rec.item_name}: butuh <span className="font-bold">{rec.recommended_qty} {rec.unit}</span>
-                    {rec.shortage_qty > 0 && (
-                      <span className="text-red-600"> (kekurangan {rec.shortage_qty})</span>
+                    {rec.item_name}: butuh <span className="font-bold">{recommendedQty} {rec.unit}</span>
+                    {shortageQty > 0 && (
+                      <span className="text-red-600"> (kekurangan {shortageQty})</span>
                     )}
                   </p>
                   {rec.coverage_days != null && (
                     <p className="text-xs text-gray-500 mt-1">
-                      Coverage: {rec.coverage_days} hari · Skor: {rec.priority_score?.toFixed(1)}
+                      Coverage: {coverageDays} hari · Skor: {priorityScore.toFixed(1)}
                     </p>
                   )}
-                  {rec.rationale_chips?.length > 0 && (
+                  {chips.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2">
-                      {rec.rationale_chips.map((chip: string, i: number) => (
+                      {chips.map((chip: string, i: number) => (
                         <span key={i} className="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
                           {chip}
                         </span>
@@ -125,7 +158,8 @@ export default function DashboardPage() {
                     </div>
                   )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           </>
         )}

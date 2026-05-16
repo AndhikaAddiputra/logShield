@@ -18,8 +18,11 @@ export default function RequestPage({ onNavigate }: { onNavigate: (page: string)
     setLoading(true);
     setError(null);
     try {
+      if (!user?.posko_id) {
+        throw new Error('Posko belum diinisialisasi. Lengkapi data posko terlebih dahulu.');
+      }
       await createRequest({
-        posko_id: user?.posko_id || `posko::${user?._id || 'unknown'}`,
+        posko_id: user.posko_id,
         items: [{ commodity: category, quantity, unit, note: notes || undefined }],
         priority: 'normal',
       });

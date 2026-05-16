@@ -31,6 +31,20 @@ function couchRemoteOptions() {
   return { skip_setup: true, auth };
 }
 
+function browserSafeRemoteUrl(remoteUrl: string) {
+  try {
+    const url = new URL(remoteUrl);
+    if (url.hostname === "couchdb") {
+      url.hostname = window.location.hostname || "localhost";
+      url.port = "5984";
+      url.protocol = window.location.protocol === "https:" ? "https:" : "http:";
+    }
+    return url.toString();
+  } catch {
+    return remoteUrl.replace("http://couchdb:5984", "http://localhost:5984");
+  }
+}
+
 function mapActivityToStatus(active: boolean, err?: Error | null): SyncStatus {
   if (err) return "error";
   if (active) return "syncing";
@@ -43,7 +57,7 @@ export function startCouchReplication(
 ): ReplicationHandle {
   const set = useSyncStore.getState().setFromReplication;
 
-  const remote = new PouchDB(remoteUrl, couchRemoteOptions());
+  const remote = new PouchDB(browserSafeRemoteUrl(remoteUrl), couchRemoteOptions());
 
   const sync = local.sync(remote, {
     live: true,

@@ -5,7 +5,9 @@ import { useAuthStore } from '../store/authStore';
 
 export default function InitPage({ onNavigate }: { onNavigate: (page: string) => void }) {
   const user = useAuthStore((s) => s.user);
+  const setUserPoskoId = useAuthStore((s) => s.setUserPoskoId);
   const [demografi, setDemografi] = useState({ pria: 0, wanita: 0, lansia: 0, balita: 0 });
+  const [kib16, setKib16] = useState(() => makeKib16());
   const [poskoName, setPoskoName] = useState('');
   const [poskoAddress, setPoskoAddress] = useState('');
   const [poskoDistrict, setPoskoDistrict] = useState('');
@@ -28,11 +30,15 @@ export default function InitPage({ onNavigate }: { onNavigate: (page: string) =>
       setError('Nama posko harus diisi');
       return;
     }
+    if (!/^\d{16}$/.test(kib16.trim())) {
+      setError('KIB harus berisi 16 digit angka');
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
-      await createPosko({
-        kib_16: new Date().getTime().toString().slice(-16),
+      const result = await createPosko({
+        kib_16: kib16.trim(),
         name: poskoName.trim(),
         address: poskoAddress.trim(),
         district: poskoDistrict.trim(),
@@ -46,6 +52,7 @@ export default function InitPage({ onNavigate }: { onNavigate: (page: string) =>
         pj_phone: contactPhone.trim(),
         pj_name: contactName.trim(),
       });
+      setUserPoskoId(result.posko._id);
       onNavigate('dashboard');
     } catch (err: any) {
       setError(err.message || 'Gagal menyimpan data posko');
@@ -76,6 +83,19 @@ export default function InitPage({ onNavigate }: { onNavigate: (page: string) =>
 
           <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm space-y-4">
             <h3 className="font-bold text-gray-800 border-b pb-2">Informasi Posko</h3>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 mb-1">KIB 16</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={16}
+                value={kib16}
+                onChange={(e) => setKib16(e.target.value.replace(/\D/g, '').slice(0, 16))}
+                className="w-full bg-gray-50 border border-gray-200 p-3 rounded-lg font-bold outline-none focus:border-blue-500"
+                placeholder="1234567890123456"
+                required
+              />
+            </div>
             <div>
               <label className="block text-xs font-bold text-gray-500 mb-1">NAMA POSKO</label>
               <input
@@ -224,4 +244,8 @@ export default function InitPage({ onNavigate }: { onNavigate: (page: string) =>
       </main>
     </div>
   );
+}
+
+function makeKib16() {
+  return Date.now().toString().padStart(16, '0').slice(-16);
 }

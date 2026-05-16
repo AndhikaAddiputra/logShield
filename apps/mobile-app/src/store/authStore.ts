@@ -7,6 +7,7 @@ export interface AuthState {
   user: UserProfile | null;
   couchdb: LoginResponse["couchdb"] | null;
   setAuth: (res: LoginResponse) => void;
+  setUserPoskoId: (poskoId: string) => void;
   clearAuth: () => void;
 }
 
@@ -22,6 +23,10 @@ export const useAuthStore = create<AuthState>()(
           user: res.user,
           couchdb: res.couchdb,
         }),
+      setUserPoskoId: (poskoId) =>
+        set((state) => ({
+          user: state.user ? { ...state.user, posko_id: poskoId } : state.user,
+        })),
       clearAuth: () =>
         set({ token: null, user: null, couchdb: null }),
     }),
