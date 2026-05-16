@@ -1,12 +1,15 @@
-import { useState } from 'react';
 import { Menu, CloudOff, LayoutDashboard, Package, User } from 'lucide-react';
 import DashboardPage from './DashboardPage';
 import LogisticsPage from './LogisticsPage';
 import ProfilePage from './ProfilePage';
+import RequestPage from './RequestPage';
 
-export default function AppLayout() {
-  const [activeTab, setActiveTab] = useState('dashboard');
+interface AppLayoutProps {
+  currentPage: string;
+  onNavigate: (page: string) => void;
+}
 
+export default function AppLayout({ currentPage, onNavigate }: AppLayoutProps) {
   return (
     <div className="flex flex-col h-screen max-w-md mx-auto bg-gray-50 font-sans">
       {/* Header Utama */}
@@ -23,30 +26,31 @@ export default function AppLayout() {
 
       {/* Area Konten Dinamis */}
       <main className="flex-1 overflow-y-auto pb-20">
-        {activeTab === 'dashboard' && <DashboardPage />}
-        {activeTab === 'logistik' && <LogisticsPage />}
-        {activeTab === 'profil' && <ProfilePage />}
+        {currentPage === 'dashboard' && <DashboardPage />}
+        {currentPage === 'logistik' && <LogisticsPage onNavigate={onNavigate} />}
+        {currentPage === 'profil' && <ProfilePage onNavigate={onNavigate} />}
+        {currentPage === 'req' && <RequestPage onNavigate={onNavigate} />}
       </main>
 
       {/* Navigasi Bawah */}
       <nav className="fixed bottom-0 w-full max-w-md bg-white border-t flex justify-around p-2">
         <button 
-          onClick={() => setActiveTab('dashboard')}
-          className={`flex flex-col items-center p-2 rounded-lg w-20 ${activeTab === 'dashboard' ? 'bg-blue-900 text-white' : 'text-blue-900'}`}
+          onClick={() => onNavigate('dashboard')}
+          className={`flex flex-col items-center p-2 rounded-lg w-20 ${currentPage === 'dashboard' ? 'bg-blue-900 text-white' : 'text-blue-900'}`}
         >
           <LayoutDashboard className="w-5 h-5 mb-1" />
           <span className="text-[10px] font-bold">DASHBOARD</span>
         </button>
         <button 
-          onClick={() => setActiveTab('logistik')}
-          className={`flex flex-col items-center p-2 rounded-lg w-20 ${activeTab === 'logistik' ? 'bg-blue-900 text-white' : 'text-blue-900'}`}
+          onClick={() => onNavigate('logistik')}
+          className={`flex flex-col items-center p-2 rounded-lg w-20 ${currentPage === 'logistik' ? 'bg-blue-900 text-white' : 'text-blue-900'}`}
         >
           <Package className="w-5 h-5 mb-1" />
           <span className="text-[10px] font-bold">LOGISTIK</span>
         </button>
         <button 
-          onClick={() => setActiveTab('profil')}
-          className={`flex flex-col items-center p-2 rounded-lg w-20 ${activeTab === 'profil' ? 'bg-blue-900 text-white' : 'text-blue-900'}`}
+          onClick={() => onNavigate('profil')}
+          className={`flex flex-col items-center p-2 rounded-lg w-20 ${currentPage === 'profil' ? 'bg-blue-900 text-white' : 'text-blue-900'}`}
         >
           <User className="w-5 h-5 mb-1" />
           <span className="text-[10px] font-bold">PROFIL</span>

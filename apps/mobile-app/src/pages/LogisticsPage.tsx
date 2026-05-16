@@ -1,67 +1,72 @@
-import { useState } from 'react';
-import { ChevronDown, Minus, Plus, ArrowRight, Lock } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { CheckCircle, FileText, AlertTriangle } from 'lucide-react';
+import { fetchRequests } from '../lib/api';
+import type { RequestRow } from '../lib/api';
 
-export default function LogisticsPage() {
-  const [quantity, setQuantity] = useState(1);
+export default function LogisticsPage({ onNavigate }: { onNavigate: (page: string) => void }) {
+  const [requests, setRequests] = useState<RequestRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetchRequests({ limit: 10 });
+        setRequests(res.rows);
+      } catch {
+        // silent fail
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
 
   return (
     <div className="p-5 flex flex-col h-full w-full">
-      <h2 className="text-3xl font-black text-blue-900 tracking-tight mb-2">DATA ENTRY</h2>
-      <p className="text-gray-600 text-sm mb-8">Ajukan permintaan tambahan logistik ke kantor pusat.</p>
+      <div className="bg-gray-100 p-4 rounded-xl mb-8">
+        <p className="text-xs font-bold text-gray-600 tracking-wider mb-3">AKSI LANGSUNG LAPANGAN</p>
+        <button
+          onClick={() => onNavigate('req')}
+          className="w-full bg-blue-700 text-white font-bold py-4 rounded-lg flex items-center justify-center gap-2 shadow-md hover:bg-blue-800 transition active:scale-95"
+        >
+          <FileText className="w-5 h-5" /> TAMBAH SUMBER DAYA
+        </button>
+      </div>
 
-      <form className="flex-1 flex flex-col">
-        {/* Dropdown Kategori */}
-        <div className="mb-6">
-          <label className="block text-xs font-bold text-blue-900 tracking-wider mb-2">SUB-KATEGORI SUMBER DAYA</label>
-          <div className="relative">
-            <select className="w-full bg-white border border-gray-200 text-gray-900 font-bold p-4 rounded-lg appearance-none outline-none focus:border-blue-500">
-              <option>Medical Supplies</option>
-              <option>Water & Sanitation</option>
-              <option>Food Rations</option>
-            </select>
-            <ChevronDown className="absolute right-4 top-4 text-gray-500 pointer-events-none" />
-          </div>
-        </div>
+      <h3 className="font-black text-lg mb-4">RECENT LOGS</h3>
 
-        {/* Input Kuantitas */}
-        <div className="mb-6">
-          <label className="block text-xs font-bold text-blue-900 tracking-wider mb-2">KUANTITAS</label>
-          <div className="flex items-center">
-            <button type="button" onClick={() => setQuantity(Math.max(1, quantity - 1))} className="bg-gray-200 text-gray-600 p-4 rounded-l-lg hover:bg-gray-300 transition">
-              <Minus className="w-5 h-5" />
-            </button>
-            <input 
-              type="number" 
-              value={quantity} 
-              onChange={(e) => setQuantity(Number(e.target.value))}
-              className="flex-1 bg-white border-y border-gray-200 text-center font-black text-xl p-3 outline-none"
-            />
-            <button type="button" onClick={() => setQuantity(quantity + 1)} className="bg-gray-200 text-gray-600 p-4 rounded-r-lg hover:bg-gray-300 transition">
-              <Plus className="w-5 h-5" />
-            </button>
-          </div>
+      {loading ? (
+        <p className="text-sm text-gray-500">Memuat data...</p>
+      ) : requests.length === 0 ? (
+        <div className="flex flex-col items-center gap-2 py-8 text-gray-400">
+          <AlertTriangle className="w-8 h-8" />
+          <p className="text-sm font-medium">Belum ada request</p>
         </div>
-
-        {/* Input Catatan */}
-        <div className="mb-8">
-          <label className="block text-xs font-bold text-blue-900 tracking-wider mb-2">CATATAN</label>
-          <textarea 
-            rows={4}
-            className="w-full bg-white border border-gray-200 p-3 rounded-lg outline-none focus:border-blue-500 resize-none"
-            placeholder="Tambahkan detail spesifik..."
-          ></textarea>
-          <p className="text-[10px] text-gray-400 font-bold mt-2">150 words max.</p>
+      ) : (
+        <div className="space-y-3">
+          {requests.map((req) => (
+            <div key={req.id} className="bg-gray-50 border border-gray-100 p-3 rounded-lg flex items-center gap-4">
+              <span className="text-xs font-bold text-gray-400 shrink-0">{req.time}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-gray-800 truncate">
+                  {req.request_code}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {req.title} · {req.status_label}
+                </p>
+                <p className="text-xs text-gray-400 truncate">
+                  {req.items.map((i) => `${i.name} ${i.quantity}`).join(', ')}
+                </p>
+              </div>
+              <CheckCircle className={`w-5 h-5 shrink-0 ${
+                req.status === 'selesai' ? 'text-green-600' :
+                req.status === 'diproses' ? 'text-blue-600' :
+                req.status === 'mendesak' ? 'text-red-600' : 'text-gray-400'
+              }`} />
+            </div>
+          ))}
         </div>
-
-        <div className="mt-auto">
-          <button type="button" className="w-full bg-blue-700 text-white font-bold py-4 rounded-lg flex items-center justify-center gap-2 shadow-md hover:bg-blue-800 transition">
-            LANJUT <ArrowRight className="w-5 h-5" />
-          </button>
-          <div className="flex justify-center items-center gap-1 mt-3 text-[10px] text-gray-400 font-bold tracking-widest">
-            <Lock className="w-3 h-3" /> END-TO-END ENCRYPTED TUNNEL
-          </div>
-        </div>
-      </form>
+      )}
     </div>
   );
 }
