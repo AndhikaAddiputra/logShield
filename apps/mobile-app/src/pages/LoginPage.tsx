@@ -1,14 +1,28 @@
 import React, { useState } from 'react';
-import { Shield, User, Lock, ArrowRight } from 'lucide-react';
+import { Shield, User, Lock, ArrowRight, AlertCircle } from 'lucide-react';
+import { login } from '../lib/api';
+import { useAuthStore } from '../store/authStore';
 
-// Tambahkan penangkapan props
 export default function LoginPage({ onNavigate }: { onNavigate: (page: string) => void }) {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const setAuth = useAuthStore((s) => s.setAuth);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    onNavigate('inisialisasi-posko');
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await login(identifier, password);
+      setAuth(res);
+      onNavigate('inisialisasi-posko');
+    } catch (err: any) {
+      setError(err.message || 'Login gagal. Periksa NIK/email dan kata sandi.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -23,7 +37,14 @@ export default function LoginPage({ onNavigate }: { onNavigate: (page: string) =
 
       <form onSubmit={handleLogin} className="bg-white p-6 rounded-2xl shadow-xl">
         <h2 className="text-xl font-bold text-gray-800 mb-6 text-center">Otorisasi Petugas</h2>
-        
+
+        {error && (
+          <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+            <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
+            <p className="text-xs font-medium text-red-700">{error}</p>
+          </div>
+        )}
+
         <div className="space-y-4">
           <div>
             <label className="block text-xs font-bold text-gray-500 tracking-wider mb-2">NIK ATAU EMAIL</label>
@@ -60,11 +81,18 @@ export default function LoginPage({ onNavigate }: { onNavigate: (page: string) =
           </div>
         </div>
 
-        <button 
+        <button
           type="submit"
-          className="w-full mt-8 bg-blue-700 hover:bg-blue-800 text-white font-bold py-4 rounded-lg flex items-center justify-center gap-2 shadow-md transition active:scale-95"
+          disabled={loading}
+          className="w-full mt-8 bg-blue-700 hover:bg-blue-800 text-white font-bold py-4 rounded-lg flex items-center justify-center gap-2 shadow-md transition active:scale-95 disabled:opacity-60"
         >
-          MASUK <ArrowRight className="w-5 h-5" />
+          {loading ? (
+            <span>MEMPROSES...</span>
+          ) : (
+            <>
+              MASUK <ArrowRight className="w-5 h-5" />
+            </>
+          )}
         </button>
       </form>
 
