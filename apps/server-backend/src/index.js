@@ -97,6 +97,36 @@ app.get("/api/ai/summary", async (_req, res, next) => {
   }
 });
 
+app.get("/api/ai/models/current", async (_req, res, next) => {
+  try {
+    res.json(await aiRequest("/models/current"));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/ai/infer/need", authenticateRequest, async (req, res, next) => {
+  try {
+    res.json(await aiRequest("/infer/need", {
+      method: "POST",
+      body: req.body || {},
+    }));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/ai/infer/recommendation", authenticateRequest, async (req, res, next) => {
+  try {
+    res.json(await aiRequest("/infer/recommendation", {
+      method: "POST",
+      body: req.body || {},
+    }));
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/api/ai/dashboard", async (req, res, next) => {
   try {
     const limit = clampLimit(req.query.limit, 10, 100);
@@ -106,10 +136,33 @@ app.get("/api/ai/dashboard", async (req, res, next) => {
   }
 });
 
+app.get("/api/ai/forecasts", async (req, res, next) => {
+  try {
+    res.json(await aiRequest(`/forecasts${queryString(req.query, { defaultLimit: 100, maxLimit: 1000 })}`));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/ai/recommendations", async (req, res, next) => {
+  try {
+    res.json(await aiRequest(`/recommendations${queryString(req.query, { defaultLimit: 100, maxLimit: 1000 })}`));
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/api/ai/recommendations/top-critical", async (req, res, next) => {
   try {
-    const limit = clampLimit(req.query.limit, 25, 100);
-    res.json(await aiRequest(`/recommendations/top-critical?limit=${limit}`));
+    res.json(await aiRequest(`/recommendations/top-critical${queryString(req.query, { defaultLimit: 25, maxLimit: 100 })}`));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/ai/anomalies", async (req, res, next) => {
+  try {
+    res.json(await aiRequest(`/anomalies${queryString(req.query, { defaultLimit: 100, maxLimit: 1000 })}`));
   } catch (error) {
     next(error);
   }
@@ -117,8 +170,7 @@ app.get("/api/ai/recommendations/top-critical", async (req, res, next) => {
 
 app.get("/api/ai/anomalies/recent", async (req, res, next) => {
   try {
-    const limit = clampLimit(req.query.limit, 25, 100);
-    res.json(await aiRequest(`/anomalies/recent?limit=${limit}`));
+    res.json(await aiRequest(`/anomalies/recent${queryString(req.query, { defaultLimit: 25, maxLimit: 100 })}`));
   } catch (error) {
     next(error);
   }
@@ -513,4 +565,14 @@ function clampLimit(value, defaultValue, maxValue) {
   const parsed = Number(value || defaultValue);
   if (!Number.isFinite(parsed) || parsed < 1) return defaultValue;
   return Math.min(Math.trunc(parsed), maxValue);
+}
+
+function queryString(query, { defaultLimit, maxLimit }) {
+  const params = new URLSearchParams();
+  params.set("limit", String(clampLimit(query.limit, defaultLimit, maxLimit)));
+  for (const [key, value] of Object.entries(query)) {
+    if (key === "limit" || value === undefined || value === null || value === "") continue;
+    params.set(key, String(value));
+  }
+  return `?${params.toString()}`;
 }

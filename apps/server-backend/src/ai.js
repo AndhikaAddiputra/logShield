@@ -4,20 +4,31 @@ import { bulkDocuments } from "./couchdb.js";
 import { validateLogShieldDocument } from "./document-schema.js";
 
 export async function aiRequest(path, options = {}) {
+  const headers = {
+    accept: "application/json",
+    ...(options.headers || {}),
+  };
+  const body = options.body === undefined
+    ? undefined
+    : typeof options.body === "string"
+      ? options.body
+      : JSON.stringify(options.body);
+  if (body && !headers["content-type"] && !headers["Content-Type"]) {
+    headers["Content-Type"] = "application/json";
+  }
+
   const response = await fetch(`${config.aiEngineUrl}${path}`, {
     method: options.method || "GET",
-    headers: {
-      accept: "application/json",
-      ...(options.headers || {}),
-    },
+    headers,
+    body,
   });
   const text = await response.text();
-  const body = text ? JSON.parse(text) : null;
+  const responseBody = text ? JSON.parse(text) : null;
   if (!response.ok) {
-    const message = body?.detail || body?.message || response.statusText;
-    throw new AiEngineError(message, response.status, body);
+    const message = responseBody?.detail || responseBody?.message || response.statusText;
+    throw new AiEngineError(message, response.status, responseBody);
   }
-  return body;
+  return responseBody;
 }
 
 export async function syncAiDashboard({ limit = 50 } = {}) {
