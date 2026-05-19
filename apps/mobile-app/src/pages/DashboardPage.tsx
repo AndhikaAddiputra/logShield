@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { RefreshCw, Utensils, Shirt, Tent, AlertTriangle } from 'lucide-react';
+import { RefreshCw, AlertTriangle, Utensils, Shirt, Tent } from 'lucide-react';
 import { fetchAiDashboard, fetchStockSummary } from '../lib/api';
 import type { AiDashboardResponse, StockSummary } from '../lib/api';
 
