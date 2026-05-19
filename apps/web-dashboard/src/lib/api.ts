@@ -584,3 +584,59 @@ export function fetchStockReadings(params: { warehouse_id?: string; commodity?: 
   const query = qs.toString();
   return request<StockReadingsResponse>(`/api/stock-readings${query ? `?${query}` : ""}`);
 }
+
+export interface SettingsProfile {
+  user_id: string;
+  name: string;
+  email: string;
+  phone: string;
+  avatar_url: string | null;
+  initials: string;
+  role: string;
+  kib_bencana_id: string | null;
+  posko_id: string | null;
+  status: string;
+  status_label: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SettingsNotifications {
+  _id: string;
+  user_id: string;
+  email: boolean;
+  app: boolean;
+  sms: boolean;
+  updated_at: string;
+}
+
+export interface SettingsResponse {
+  ok: boolean;
+  profile: SettingsProfile;
+  notifications: SettingsNotifications;
+}
+
+export function fetchSettings() {
+  return request<SettingsResponse>("/api/settings");
+}
+
+export function updateProfile(payload: { name?: string; email?: string; phone?: string; avatar_url?: string }) {
+  return request<{ ok: boolean; profile: SettingsProfile }>("/api/settings/profile", {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function changePassword(current_password: string, new_password: string) {
+  return request<{ ok: boolean; message: string }>("/api/settings/password", {
+    method: "POST",
+    body: JSON.stringify({ current_password, new_password }),
+  });
+}
+
+export function updateNotificationSettings(payload: { email?: boolean; app?: boolean; sms?: boolean }) {
+  return request<{ ok: boolean; notifications: SettingsNotifications }>("/api/settings/notifications", {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
