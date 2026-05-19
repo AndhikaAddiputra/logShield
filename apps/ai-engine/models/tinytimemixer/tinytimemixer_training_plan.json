@@ -1,0 +1,37 @@
+{
+  "model": "ibm-granite/granite-timeseries-ttm-r2",
+  "epochs": 10,
+  "early_stopping_patience": 3,
+  "arrays": "data\\tinytimemixer\\logshield_ttm_arrays.npz",
+  "metadata": {
+    "input": "data\\processed\\logshield_tinytimemixer_windows.jsonl",
+    "output": "data\\tinytimemixer\\logshield_ttm_arrays.npz",
+    "windows": 108025,
+    "channels": [
+      "past_target_need_qty",
+      "past_current_stock_qty",
+      "past_distributed_qty",
+      "past_requested_qty"
+    ],
+    "context_length": 14,
+    "input_channels": 4,
+    "horizon": 7,
+    "splits": {
+      "train": 75617,
+      "validation": 16204,
+      "test": 16204
+    },
+    "model_target": "IBM Granite TinyTimeMixer / TTM",
+    "recommended_epochs": 10,
+    "early_stopping_patience": 3
+  },
+  "intended_runtime": "Python 3.11/3.12 with granite-tsfm",
+  "status": "ready_for_ttm_runtime",
+  "blocked_by": {
+    "status": "blocked",
+    "reason": "IBM granite-tsfm currently requires Python >=3.9,<3.13.",
+    "current_python": "3.14.5",
+    "recommended_python": "3.11 or 3.12",
+    "install": "pip install -r apps/ai-engine/requirements-ttm.txt"
+  }
+}
