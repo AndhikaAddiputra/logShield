@@ -1,0 +1,123 @@
+{
+  "input": "data\\processed\\logshield_training_dataset.csv",
+  "method": "shap_tree_surrogate",
+  "note": "SHAP explains a RandomForest surrogate trained on engineered LogShield features; it is an explainability layer, not the active forecasting model.",
+  "target": "target_need_qty",
+  "train_sample_size": 12000,
+  "explain_sample_size": 1500,
+  "features": [
+    "day_since_disaster",
+    "day_of_week",
+    "is_weekend",
+    "total_pengungsi",
+    "total_kk",
+    "bayi",
+    "balita",
+    "anak",
+    "remaja",
+    "dewasa",
+    "lansia",
+    "ibu_hamil",
+    "ibu_menyusui",
+    "disabilitas",
+    "vulnerable_count",
+    "vulnerable_ratio",
+    "stock_in_qty",
+    "distributed_qty",
+    "requested_qty",
+    "current_stock_qty",
+    "critical_stock_threshold",
+    "stock_coverage_days",
+    "need_qty_lag_1",
+    "need_qty_lag_3",
+    "need_qty_lag_7",
+    "distributed_qty_lag_1",
+    "distributed_qty_lag_3",
+    "stock_qty_lag_1",
+    "rolling_need_mean_3",
+    "rolling_need_mean_7",
+    "rolling_distributed_mean_7",
+    "rolling_stock_mean_7"
+  ],
+  "top_features": [
+    {
+      "feature": "requested_qty",
+      "mean_abs_shap": 956.52886,
+      "rationale_chip": "Permintaan logistik terakhir memengaruhi estimasi kebutuhan."
+    },
+    {
+      "feature": "need_qty_lag_1",
+      "mean_abs_shap": 13.397128,
+      "rationale_chip": "Kebutuhan hari sebelumnya memengaruhi prediksi kebutuhan."
+    },
+    {
+      "feature": "rolling_need_mean_7",
+      "mean_abs_shap": 13.072257,
+      "rationale_chip": "Rata-rata kebutuhan mingguan menjadi sinyal penting."
+    },
+    {
+      "feature": "distributed_qty",
+      "mean_abs_shap": 10.249289,
+      "rationale_chip": "Distribusi terakhir memengaruhi estimasi kekurangan."
+    },
+    {
+      "feature": "critical_stock_threshold",
+      "mean_abs_shap": 6.787165,
+      "rationale_chip": "Fitur critical_stock_threshold berpengaruh pada hasil prediksi."
+    },
+    {
+      "feature": "rolling_need_mean_3",
+      "mean_abs_shap": 4.636987,
+      "rationale_chip": "Rata-rata kebutuhan 3 hari terakhir menjadi sinyal penting."
+    },
+    {
+      "feature": "rolling_distributed_mean_7",
+      "mean_abs_shap": 3.483334,
+      "rationale_chip": "Fitur rolling_distributed_mean_7 berpengaruh pada hasil prediksi."
+    },
+    {
+      "feature": "need_qty_lag_7",
+      "mean_abs_shap": 2.424797,
+      "rationale_chip": "Pola mingguan kebutuhan memengaruhi prediksi."
+    },
+    {
+      "feature": "distributed_qty_lag_1",
+      "mean_abs_shap": 1.181306,
+      "rationale_chip": "Fitur distributed_qty_lag_1 berpengaruh pada hasil prediksi."
+    },
+    {
+      "feature": "need_qty_lag_3",
+      "mean_abs_shap": 1.146788,
+      "rationale_chip": "Tren kebutuhan 3 hari terakhir memengaruhi prediksi."
+    },
+    {
+      "feature": "distributed_qty_lag_3",
+      "mean_abs_shap": 0.47155,
+      "rationale_chip": "Fitur distributed_qty_lag_3 berpengaruh pada hasil prediksi."
+    },
+    {
+      "feature": "day_since_disaster",
+      "mean_abs_shap": 0.461681,
+      "rationale_chip": "Fitur day_since_disaster berpengaruh pada hasil prediksi."
+    },
+    {
+      "feature": "rolling_stock_mean_7",
+      "mean_abs_shap": 0.420406,
+      "rationale_chip": "Fitur rolling_stock_mean_7 berpengaruh pada hasil prediksi."
+    },
+    {
+      "feature": "day_of_week",
+      "mean_abs_shap": 0.394151,
+      "rationale_chip": "Fitur day_of_week berpengaruh pada hasil prediksi."
+    },
+    {
+      "feature": "vulnerable_count",
+      "mean_abs_shap": 0.356718,
+      "rationale_chip": "Jumlah kelompok rentan menaikkan prioritas bantuan."
+    }
+  ],
+  "outputs": {
+    "report": "data\\explainability\\shap_report.json",
+    "background": "data\\explainability\\shap_background.csv"
+  }
+}
