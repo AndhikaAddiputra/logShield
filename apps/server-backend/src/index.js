@@ -36,6 +36,13 @@ import {
   patchRequest,
   processRequest,
 } from "./requests.js";
+import {
+  changePassword,
+  getSettings,
+  updateNotificationSettings,
+  updateProfile,
+  uploadAvatar,
+} from "./settings.js";
 import { addStock, getStockCategories, getStockSummary, getStockTrend } from "./stocks.js";
 import {
   createAuditLogDoc,
@@ -340,6 +347,51 @@ app.get("/api/dashboard/notifications", authenticateRequest, async (_req, res, n
     next(error);
   }
 });
+
+app.get("/api/settings", authenticateRequest, async (req, res, next) => {
+  try {
+    res.json(await getSettings(req.auth));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.patch("/api/settings/profile", authenticateRequest, async (req, res, next) => {
+  try {
+    res.json(await updateProfile(req.auth, req.body || {}));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/settings/password", authenticateRequest, async (req, res, next) => {
+  try {
+    res.json(await changePassword(req.auth, req.body || {}));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.patch("/api/settings/notifications", authenticateRequest, async (req, res, next) => {
+  try {
+    res.json(await updateNotificationSettings(req.auth, req.body || {}));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post(
+  "/api/settings/avatar",
+  authenticateRequest,
+  upload.single("avatar"),
+  async (req, res, next) => {
+    try {
+      res.json(await uploadAvatar(req.auth, req.file));
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 app.get("/api/requests", authenticateRequest, async (req, res, next) => {
   try {
