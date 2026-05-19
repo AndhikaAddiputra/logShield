@@ -1,7 +1,7 @@
 services:
   # CouchDB
   couchdb:
-    image: couchdb:3.2
+    image: couchdb:3
     container_name: logshield-couchdb
     ports:
       - "5984:5984"
@@ -22,7 +22,7 @@ services:
 
   # MQTT Broker (Mosquitto)
   mosquitto:
-    image: eclipse-mosquitto:2.0
+    image: eclipse-mosquitto:2
     container_name: logshield-mosquitto
     ports:
       - "1883:1883"

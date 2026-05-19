@@ -16,7 +16,7 @@ import {
 } from "./auth.js";
 import { aiRequest, syncAiDashboard } from "./ai.js";
 import { config } from "./config.js";
-import { bootstrapDatabase, checkCouchHealth, putDocument } from "./couchdb.js";
+import { bootstrapDatabase, checkCouchHealth, getDocument, putDocument } from "./couchdb.js";
 import { startDistributionSyncMarker } from "./distribution-sync.js";
 import { ingestStockReading, startMqttIngestion } from "./mqtt.js";
 import { createPosko, importPoskosFromCsv, listPoskos } from "./poskos.js";
@@ -232,6 +232,18 @@ app.get("/api/poskos", authenticateRequest, async (_req, res, next) => {
 app.post("/api/poskos", authenticateRequest, async (req, res, next) => {
   try {
     const result = await createPosko(req.body || {});
+    if (req.user?.user_id) {
+      try {
+        const userDoc = await getDocument(req.user.user_id);
+        if (userDoc && !userDoc.posko_id) {
+          userDoc.posko_id = result.posko._id;
+          userDoc.updated_at = new Date().toISOString();
+          await putDocument(userDoc);
+        }
+      } catch (docErr) {
+        console.warn("Could not update user posko_id:", docErr.message);
+      }
+    }
     res.status(201).json(result);
   } catch (error) {
     next(error);

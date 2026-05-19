@@ -113,8 +113,14 @@ export function PersonnelPage() {
     setModalMode(null);
   };
 
+  const KIB_PATTERN = /^BNC-\d{4}-[A-Z0-9]{2}-\d{4}$/;
+
   const handleApprove = async () => {
     if (!modalTarget) return;
+    if (!KIB_PATTERN.test(approveKib)) {
+      alert("Format KIB Bencana ID salah. Gunakan format: BNC-2026-XX-0001");
+      return;
+    }
     setSubmitting(true);
     try {
       const payload: ApprovePayload = {
@@ -357,9 +363,10 @@ export function PersonnelPage() {
               <Field label="KIB Bencana ID">
                 <Input
                   value={approveKib}
-                  onChange={(e) => setApproveKib(e.target.value)}
+                  onChange={(e) => setApproveKib(e.target.value.toUpperCase())}
                   placeholder="BNC-2026-JK-0001"
                 />
+                <p className="text-xs text-gray-400 mt-1">Format: BNC-{new Date().getFullYear()}-XX-0001</p>
               </Field>
 
               <Field label="Posko Assignment (opsional)">

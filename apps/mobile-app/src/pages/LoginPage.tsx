@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Shield, User, Lock, ArrowRight, AlertCircle } from 'lucide-react';
+import { User, Lock, ArrowRight, AlertCircle } from 'lucide-react';
 import { login } from '../lib/api';
 import { useAuthStore } from '../store/authStore';
+import logoWhite from "../../assets/logo-white.svg";
 
 export default function LoginPage({ onNavigate }: { onNavigate: (page: string) => void }) {
   const [identifier, setIdentifier] = useState('');
@@ -17,7 +18,7 @@ export default function LoginPage({ onNavigate }: { onNavigate: (page: string) =
     try {
       const res = await login(identifier, password);
       setAuth(res);
-      onNavigate('inisialisasi-posko');
+      onNavigate(res.user.posko_id || res.user.role === 'admin' ? 'dashboard' : 'inisialisasi-posko');
     } catch (err: any) {
       setError(err.message || 'Login gagal. Periksa NIK/email dan kata sandi.');
     } finally {
@@ -28,8 +29,8 @@ export default function LoginPage({ onNavigate }: { onNavigate: (page: string) =
   return (
     <div className="flex flex-col h-screen bg-blue-900 p-6 justify-center">
       <div className="flex flex-col items-center mb-12">
-        <div className="bg-white p-4 rounded-2xl mb-4 shadow-lg">
-          <Shield className="w-12 h-12 text-blue-900" />
+        <div className="p-4 rounded-2xl mb-4 shadow-lg">
+          <img src={logoWhite} alt="LogShield" className="size-14 object-contain" />
         </div>
         <h1 className="text-3xl font-black text-white tracking-widest uppercase">Log-Shield</h1>
         <p className="text-blue-200 text-sm mt-2 text-center">Sistem Manajemen Logistik Kemanusiaan</p>
