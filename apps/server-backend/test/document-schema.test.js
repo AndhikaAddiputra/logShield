@@ -171,6 +171,23 @@ test("validates signup_request, auth_credential, and email_outbox documents", ()
   assert.equal(validateLogShieldDocument(outbox), outbox);
 });
 
+test("validates user_settings notification preferences", () => {
+  const doc = {
+    _id: "user_settings::user::athar",
+    type: "user_settings",
+    user_id: "user::athar",
+    notifications: {
+      email: true,
+      app: true,
+      sms: false,
+    },
+    created_at: "2026-05-14T10:00:00.000Z",
+    updated_at: "2026-05-14T10:00:00.000Z",
+  };
+
+  assert.equal(validateLogShieldDocument(doc), doc);
+});
+
 test("rejects invalid posko KIB", () => {
   assert.throws(
     () =>

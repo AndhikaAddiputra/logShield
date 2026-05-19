@@ -35,6 +35,7 @@ export const INDEX_FIELDS = [
   "anomaly_type",
   "forecast_date",
   "date",
+  "notifications",
 ];
 
 const userRoles = ["admin", "koordinator", "lapangan"];
@@ -65,6 +66,8 @@ export function validateLogShieldDocument(doc) {
       return validateAuthCredential(doc);
     case "email_outbox":
       return validateEmailOutbox(doc);
+    case "user_settings":
+      return validateUserSettings(doc);
     case "distribution":
       return validateDistribution(doc);
     case "stock_reading":
@@ -357,6 +360,19 @@ function validateEmailOutbox(doc) {
   nullableString(doc.related_user_id, "related_user_id");
   isoTimestamp(doc.created_at, "created_at");
   nullableIsoTimestamp(doc.sent_at, "sent_at");
+  return doc;
+}
+
+function validateUserSettings(doc) {
+  requireId(doc, /^user_settings::user::[^:]+$/);
+  exact(doc.type, "user_settings", "type");
+  match(doc.user_id, /^user::[^:]+$/, "user_id");
+  assertObject(doc.notifications, "notifications");
+  requiredBoolean(doc.notifications.email, "notifications.email");
+  requiredBoolean(doc.notifications.app, "notifications.app");
+  requiredBoolean(doc.notifications.sms, "notifications.sms");
+  isoTimestamp(doc.created_at, "created_at");
+  isoTimestamp(doc.updated_at, "updated_at");
   return doc;
 }
 

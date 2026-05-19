@@ -18,11 +18,11 @@ import { aiRequest, syncAiDashboard } from "./ai.js";
 import { config } from "./config.js";
 import { bootstrapDatabase, checkCouchHealth, findDocuments, getDocument, putDocument } from "./couchdb.js";
 import {
+  getDashboardNotifications,
   getDashboardOverview,
-  getNotifications,
-  getRegionalHeatmap,
-  getStockWeight,
-  getVulnerableFulfillment,
+  getDashboardRegionalHeatmap,
+  getDashboardStockWeight,
+  getDashboardVulnerableFulfillment,
   searchDashboard,
 } from "./dashboard.js";
 import { startDistributionSyncMarker } from "./distribution-sync.js";
@@ -36,6 +36,13 @@ import {
   patchRequest,
   processRequest,
 } from "./requests.js";
+import {
+  changePassword,
+  getSettings,
+  updateNotificationSettings,
+  updateProfile,
+  uploadAvatar,
+} from "./settings.js";
 import { addStock, getStockCategories, getStockSummary, getStockTrend } from "./stocks.js";
 import {
   createAuditLogDoc,
@@ -304,6 +311,99 @@ app.post("/api/stocks", authenticateRequest, async (req, res, next) => {
     next(error);
   }
 });
+
+app.get("/api/dashboard/overview", authenticateRequest, async (_req, res, next) => {
+  try {
+    res.json(await getDashboardOverview());
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/dashboard/stock-weight", authenticateRequest, async (req, res, next) => {
+  try {
+    res.json(await getDashboardStockWeight(req.query));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/dashboard/regional-heatmap", authenticateRequest, async (req, res, next) => {
+  try {
+    res.json(await getDashboardRegionalHeatmap(req.query));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/dashboard/vulnerable-fulfillment", authenticateRequest, async (_req, res, next) => {
+  try {
+    res.json(await getDashboardVulnerableFulfillment());
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/dashboard/search", authenticateRequest, async (req, res, next) => {
+  try {
+    res.json(await searchDashboard(req.query));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/dashboard/notifications", authenticateRequest, async (_req, res, next) => {
+  try {
+    res.json(await getDashboardNotifications());
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/settings", authenticateRequest, async (req, res, next) => {
+  try {
+    res.json(await getSettings(req.auth));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.patch("/api/settings/profile", authenticateRequest, async (req, res, next) => {
+  try {
+    res.json(await updateProfile(req.auth, req.body || {}));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/settings/password", authenticateRequest, async (req, res, next) => {
+  try {
+    res.json(await changePassword(req.auth, req.body || {}));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.patch("/api/settings/notifications", authenticateRequest, async (req, res, next) => {
+  try {
+    res.json(await updateNotificationSettings(req.auth, req.body || {}));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post(
+  "/api/settings/avatar",
+  authenticateRequest,
+  upload.single("avatar"),
+  async (req, res, next) => {
+    try {
+      res.json(await uploadAvatar(req.auth, req.file));
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 app.get("/api/requests", authenticateRequest, async (req, res, next) => {
   try {
