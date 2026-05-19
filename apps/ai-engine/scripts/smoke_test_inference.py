@@ -42,7 +42,6 @@ def load_sample_payload() -> dict[str, object]:
         "vulnerable_count": vulnerable_count,
         "current_stock_qty": float(meta["current_stock_qty"]),
         "critical_stock_threshold": float(meta["critical_stock_threshold"]),
-        "is_synthetic_series": meta["is_synthetic"],
         "history": [
             {
                 "date": row["date"],
@@ -81,6 +80,24 @@ def main() -> int:
         errors.append("daily recommendation horizon is not 7")
     if "top_recommendation" not in response:
         errors.append("missing top_recommendation")
+    prediction_documents = response.get("prediction_documents", [])
+    if len(prediction_documents) != 7:
+        errors.append("prediction document horizon is not 7")
+    else:
+        first_prediction = prediction_documents[0]
+        if first_prediction.get("type") != "prediction":
+            errors.append("prediction document has unexpected type")
+        if first_prediction.get("attribution_method") != "ttm_gradient_x_input":
+            errors.append("prediction document is missing live TTM attribution method")
+        if not first_prediction.get("attribution_values"):
+            errors.append("prediction document is missing attribution_values")
+        if not first_prediction.get("rationale_chips"):
+            errors.append("prediction document is missing attribution rationale chips")
+        if "confidence_low" not in first_prediction or "confidence_high" not in first_prediction:
+            errors.append("prediction document is missing confidence interval")
+    top_details = response.get("top_recommendation", {}).get("rationale_chip_details", [])
+    if not top_details:
+        errors.append("top recommendation is missing structured rationale_chip_details")
     if cold_start_response.get("inference_mode") != "cold_start":
         errors.append("expected empty-history sample to use cold_start mode")
     if len(cold_start_response.get("daily_recommendations", [])) != 7:
@@ -98,6 +115,8 @@ def main() -> int:
             "posko_id": response.get("posko_id"),
             "item_name": response.get("item_name"),
             "top_recommendation": response.get("top_recommendation"),
+            "prediction_document": response.get("prediction_documents", [None])[0],
+            "explainability": response.get("explainability"),
         },
         "cold_start_sample": {
             "inference_mode": cold_start_response.get("inference_mode"),

@@ -20,10 +20,6 @@
     "gempa_bumi_tsunami": 131265,
     "gunung_meletus": 63180
   },
-  "synthetic_counts": {
-    "false": 892,
-    "true": 194445
-  },
   "tinytimemixer": {
     "context_length": 30,
     "horizon": 7,

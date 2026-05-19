@@ -33,7 +33,6 @@ def summarize(training_rows: list[dict[str, object]], ttm_windows_count: int) ->
     dates = [str(row["date"]) for row in training_rows]
     risk_counts = Counter(str(row["risk_label"]) for row in training_rows)
     disaster_counts = Counter(str(row["disaster_type"]) for row in training_rows)
-    synthetic_counts = Counter(str(row["is_synthetic"]) for row in training_rows)
     unique_series = {
         (str(row["kib_bencana_id"]), str(row["posko_id"]), str(row["item_name"]))
         for row in training_rows
@@ -52,7 +51,6 @@ def summarize(training_rows: list[dict[str, object]], ttm_windows_count: int) ->
         "date_max": max(dates) if dates else None,
         "risk_counts": dict(sorted(risk_counts.items())),
         "disaster_counts": dict(sorted(disaster_counts.items())),
-        "synthetic_counts": dict(sorted(synthetic_counts.items())),
         "tinytimemixer": {
             "context_length": TTM_CONTEXT_LENGTH,
             "horizon": TTM_HORIZON,
