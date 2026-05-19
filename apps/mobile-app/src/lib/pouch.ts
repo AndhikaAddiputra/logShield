@@ -1,6 +1,7 @@
 import PouchDB from "pouchdb";
 import PouchDBFind from "pouchdb-find";
 import type { SyncStatus } from "@log-shield/shared-types";
+import { useAuthStore } from "../store/authStore";
 import { useSyncStore } from "../store/syncStore";
 
 PouchDB.plugin(PouchDBFind);
@@ -11,27 +12,37 @@ export interface ReplicationHandle {
   cancel: () => void;
 }
 
-function couchRemoteOptions(): {
-  skip_setup: boolean;
-  auth?: { username: string; password: string };
-} {
-  const user = import.meta.env.VITE_COUCHDB_USER;
-  const pass = import.meta.env.VITE_COUCHDB_PASSWORD;
-  const auth =
-    user && pass
-      ? {
-          username: user,
-          password: pass,
-        }
-      : undefined;
-  return {
-    skip_setup: true,
-    auth,
-  };
-}
-
 export function createLocalDb() {
   return new PouchDB(LOCAL_DB_NAME);
+}
+
+function couchRemoteOptions() {
+  const authState = useAuthStore.getState();
+  const couch = authState.couchdb;
+  if (couch?.username && couch?.password) {
+    return {
+      skip_setup: true,
+      auth: { username: couch.username, password: couch.password },
+    };
+  }
+  const user = import.meta.env.VITE_COUCHDB_USER;
+  const pass = import.meta.env.VITE_COUCHDB_PASSWORD;
+  const auth = user && pass ? { username: user, password: pass } : undefined;
+  return { skip_setup: true, auth };
+}
+
+function browserSafeRemoteUrl(remoteUrl: string) {
+  try {
+    const url = new URL(remoteUrl);
+    if (url.hostname === "couchdb") {
+      url.hostname = window.location.hostname || "localhost";
+      url.port = "5984";
+      url.protocol = window.location.protocol === "https:" ? "https:" : "http:";
+    }
+    return url.toString();
+  } catch {
+    return remoteUrl.replace("http://couchdb:5984", "http://localhost:5984");
+  }
 }
 
 function mapActivityToStatus(active: boolean, err?: Error | null): SyncStatus {
@@ -40,17 +51,13 @@ function mapActivityToStatus(active: boolean, err?: Error | null): SyncStatus {
   return "paused";
 }
 
-/**
- * Two-way sync with CouchDB (LWW is default CouchDB/PouchDB merge for conflicts).
- * Call once after local DB is ready; uses live + retry for offline-first.
- */
 export function startCouchReplication(
   local: ReturnType<typeof createLocalDb>,
   remoteUrl: string
 ): ReplicationHandle {
   const set = useSyncStore.getState().setFromReplication;
 
-  const remote = new PouchDB(remoteUrl, couchRemoteOptions());
+  const remote = new PouchDB(browserSafeRemoteUrl(remoteUrl), couchRemoteOptions());
 
   const sync = local.sync(remote, {
     live: true,
@@ -65,10 +72,7 @@ export function startCouchReplication(
 
   sync
     .on("change", () => {
-      set({
-        status: "syncing",
-        detail: "Menerima atau mengirim perubahan…",
-      });
+      set({ status: "syncing", detail: "Menerima atau mengirim perubahan…" });
     })
     .on("paused", () => {
       set({

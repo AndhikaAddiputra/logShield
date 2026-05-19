@@ -5,8 +5,13 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  body {
-    @apply m-0 min-h-dvh font-sans antialiased text-ls-foreground bg-ls-surface;
+@layer utilities {
+  .animate-fade-in {
+    animation: fade-in 0.5s ease-out forwards;
+  }
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
 }
