@@ -426,3 +426,161 @@ export function createRequest(payload: CreateRequestPayload) {
     body: JSON.stringify(payload),
   });
 }
+
+export interface DashboardOverview {
+  ok: boolean;
+  cards: {
+    total_posko: number;
+    critical_items: number;
+    critical_units: number;
+    pending_requests: number;
+    ai_health: string;
+    ai_status: string;
+  };
+  updated_at: string;
+}
+
+export interface StockWeightDay {
+  date: string;
+  label: string;
+  kebutuhan: number;
+  persediaan: number;
+}
+
+export interface StockWeightFilterOption {
+  category: string;
+  label: string;
+  commodities: string[];
+}
+
+export interface StockWeightResponse {
+  ok: boolean;
+  filter: { category?: string; commodity?: string };
+  options: StockWeightFilterOption[];
+  days: StockWeightDay[];
+}
+
+export interface RegionalHeatmapPosko {
+  posko_id: string;
+  name: string;
+  district: string;
+  province: string;
+}
+
+export interface RegionalHeatmapValue {
+  posko_id: string;
+  value: number;
+  intensity: number;
+}
+
+export interface RegionalHeatmapRow {
+  category: string;
+  label: string;
+  values: RegionalHeatmapValue[];
+}
+
+export interface RegionalHeatmapResponse {
+  ok: boolean;
+  columns: RegionalHeatmapPosko[];
+  rows: RegionalHeatmapRow[];
+}
+
+export interface VulnerableGroup {
+  key: string;
+  label: string;
+  fulfilled: number;
+  target: number;
+  percentage: number;
+}
+
+export interface VulnerableFulfillmentResponse {
+  ok: boolean;
+  groups: VulnerableGroup[];
+}
+
+export interface SearchResult {
+  type: string;
+  id: string;
+  title: string;
+  subtitle: string;
+}
+
+export interface SearchResponse {
+  ok: boolean;
+  query: string;
+  results: SearchResult[];
+}
+
+export interface DashboardNotification {
+  type: string;
+  severity: string;
+  title: string;
+  message: string;
+  created_at: string;
+}
+
+export interface NotificationsResponse {
+  ok: boolean;
+  unread_count: number;
+  notifications: DashboardNotification[];
+}
+
+export function fetchDashboardOverview() {
+  return request<DashboardOverview>("/api/dashboard/overview");
+}
+
+export function fetchStockWeight(params: { category?: string; commodity?: string; days?: number } = {}) {
+  const qs = new URLSearchParams();
+  if (params.category) qs.set("category", params.category);
+  if (params.commodity) qs.set("commodity", params.commodity);
+  if (params.days) qs.set("days", String(params.days));
+  const query = qs.toString();
+  return request<StockWeightResponse>(`/api/dashboard/stock-weight${query ? `?${query}` : ""}`);
+}
+
+export function fetchRegionalHeatmap(limit = 7) {
+  return request<RegionalHeatmapResponse>(`/api/dashboard/regional-heatmap?limit=${limit}`);
+}
+
+export function fetchVulnerableFulfillment() {
+  return request<VulnerableFulfillmentResponse>("/api/dashboard/vulnerable-fulfillment");
+}
+
+export function fetchDashboardSearch(q: string, limit = 10) {
+  return request<SearchResponse>(`/api/dashboard/search?q=${encodeURIComponent(q)}&limit=${limit}`);
+}
+
+export function fetchDashboardNotifications() {
+  return request<NotificationsResponse>("/api/dashboard/notifications");
+}
+
+export interface StockReading {
+  _id: string;
+  type: "stock_reading";
+  warehouse_id: string;
+  node_id: string;
+  commodity: string;
+  weight_g: number;
+  weight_delta_g: number;
+  sample_count: number;
+  rssi: number;
+  uptime_s: number;
+  battery_mv: number | null;
+  timestamp: string;
+  created_at: string;
+}
+
+export interface StockReadingsResponse {
+  ok: boolean;
+  readings: StockReading[];
+}
+
+export function fetchStockReadings(params: { warehouse_id?: string; commodity?: string; node_id?: string; limit?: number } = {}) {
+  const qs = new URLSearchParams();
+  if (params.warehouse_id) qs.set("warehouse_id", params.warehouse_id);
+  if (params.commodity) qs.set("commodity", params.commodity);
+  if (params.node_id) qs.set("node_id", params.node_id);
+  if (params.limit) qs.set("limit", String(params.limit));
+  const query = qs.toString();
+  return request<StockReadingsResponse>(`/api/stock-readings${query ? `?${query}` : ""}`);
+}

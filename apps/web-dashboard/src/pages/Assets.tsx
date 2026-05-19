@@ -24,10 +24,12 @@ import {
 } from "recharts";
 import {
   type StockCategory,
+  type StockReading,
   type StockSummary,
   type StockTrendDay,
   addStock,
   fetchStockCategories,
+  fetchStockReadings,
   fetchStockSummary,
   fetchStockTrend,
 } from "../lib/api";
@@ -159,6 +161,7 @@ export function AssetsPage() {
   const [summary, setSummary] = useState<StockSummary | null>(null);
   const [categories, setCategories] = useState<StockCategory[]>([]);
   const [trend, setTrend] = useState<StockTrendDay[]>([]);
+  const [readings, setReadings] = useState<StockReading[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -171,18 +174,22 @@ export function AssetsPage() {
   const [addThreshold, setAddThreshold] = useState(0);
   const [submitting, setSubmitting] = useState(false);
 
+  const [iotFilter, setIotFilter] = useState("all");
+
   const loadData = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [s, c, t] = await Promise.all([
+      const [s, c, t, r] = await Promise.all([
         fetchStockSummary(),
         fetchStockCategories(),
         fetchStockTrend(7),
+        fetchStockReadings({ limit: 100 }).catch(() => ({ ok: false, readings: [] })),
       ]);
       setSummary(s);
       setCategories(c.categories);
       setTrend(t.days);
+      setReadings(r.readings);
     } catch (err: any) {
       setError(err.message || "Gagal memuat data inventaris");
     } finally {
@@ -335,6 +342,90 @@ export function AssetsPage() {
                 </div>
               </div>
             )}
+
+            <div className="rounded-ls-lg border border-ls-border bg-white p-5 shadow-ls">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-base font-semibold text-ls-navy">Pembacaan Sensor IoT</h2>
+                  <p className="text-xs text-ls-muted">Data timbangan dari load cell per komoditas</p>
+                </div>
+                {readings.length > 0 && (
+                  <select
+                    value={iotFilter}
+                    onChange={(e) => setIotFilter(e.target.value)}
+                    className="rounded-ls-md border border-ls-border bg-white px-3 py-1.5 text-xs text-ls-navy"
+                  >
+                    <option value="all">Semua Komoditas</option>
+                    {[...new Set(readings.map((r) => r.commodity))].map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+              {readings.length > 0 ? (
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {Object.entries(
+                    readings
+                      .filter((r) => iotFilter === "all" || r.commodity === iotFilter)
+                      .reduce<Record<string, StockReading[]>>((acc, r) => {
+                        (acc[r.commodity] ??= []).push(r);
+                        return acc;
+                      }, {})
+                  ).map(([commodity, rs]) => {
+                    const latest = rs[0];
+                    const avg = rs.reduce((s, r) => s + r.weight_g, 0) / rs.length;
+                    return (
+                      <div key={commodity} className="rounded-ls-md border border-ls-border p-4 text-sm">
+                        <div className="mb-2 flex items-center justify-between">
+                          <span className="font-semibold capitalize text-ls-navy">{commodity}</span>
+                          <span className="rounded-full bg-ls-sidebar px-2 py-0.5 text-[10px] font-medium text-ls-muted">{rs.length} bacaan</span>
+                        </div>
+                        <div className="space-y-1.5 text-xs text-ls-muted">
+                          <div className="flex justify-between">
+                            <span>Berat terkini</span>
+                            <span className="font-mono font-semibold text-ls-navy">{(latest.weight_g / 1000).toFixed(2)} kg</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Berat rata-rata</span>
+                            <span className="font-mono text-ls-navy">{(avg / 1000).toFixed(2)} kg</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Delta</span>
+                            <span className={`font-mono ${latest.weight_delta_g < 0 ? "text-red-500" : "text-green-600"}`}>
+                              {latest.weight_delta_g >= 0 ? "+" : ""}{(latest.weight_delta_g / 1000).toFixed(2)} kg
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Baterai</span>
+                            <span className={`font-mono ${latest.battery_mv !== null && latest.battery_mv < 3000 ? "text-red-500" : "text-ls-navy"}`}>
+                              {latest.battery_mv !== null ? `${(latest.battery_mv / 1000).toFixed(2)}V` : "N/A"}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Sinyal RSSI</span>
+                            <span className="font-mono text-ls-navy">{latest.rssi} dBm</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Node</span>
+                            <span className="font-mono text-ls-navy">{latest.node_id}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Terakhir</span>
+                            <span className="text-ls-navy">{new Date(latest.timestamp).toLocaleString("id-ID")}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-2 py-10 text-sm text-ls-muted">
+                  <span className="text-2xl">📡</span>
+                  <span>Belum ada data dari sensor IoT</span>
+                  <span className="text-xs">Kirim data via POST /api/stock-readings atau melalui MQTT</span>
+                </div>
+              )}
+            </div>
           </>
         )}
       </div>

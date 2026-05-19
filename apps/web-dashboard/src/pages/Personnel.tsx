@@ -19,8 +19,10 @@ import {
   type ApprovePayload,
   type PersonnelRow,
   type PersonnelResponse,
+  type PoskoDoc,
   approveSignup,
   fetchPersonnel,
+  fetchPoskos,
   rejectSignup,
 } from "../lib/api";
 
@@ -49,9 +51,7 @@ export function PersonnelPage() {
   const [approveRole, setApproveRole] = useState("koordinator");
   const [approveKib, setApproveKib] = useState("");
   const [approvePosko, setApprovePosko] = useState("");
-  const [approveName, setApproveName] = useState("");
-  const [approveEmail, setApproveEmail] = useState("");
-  const [approvePhone, setApprovePhone] = useState("");
+  const [poskoList, setPoskoList] = useState<PoskoDoc[]>([]);
   const [rejectReason, setRejectReason] = useState("");
 
   const loadData = async () => {
@@ -91,15 +91,18 @@ export function PersonnelPage() {
   const pendingCount = data?.rows.filter((r) => r.status === "pending").length || 0;
   const activeCount = data?.rows.filter((r) => r.status === "active").length || 0;
 
-  const openApprove = (row: PersonnelRow) => {
+  const openApprove = async (row: PersonnelRow) => {
     setModalTarget(row);
     setModalMode("approve");
     setApproveRole("koordinator");
     setApproveKib("");
     setApprovePosko("");
-    setApproveName(row.nama_personel);
-    setApproveEmail("");
-    setApprovePhone("");
+    try {
+      const res = await fetchPoskos();
+      setPoskoList(res.rows.filter((p) => p.status === "active"));
+    } catch {
+      setPoskoList([]);
+    }
   };
 
   const openReject = (row: PersonnelRow) => {
@@ -128,9 +131,6 @@ export function PersonnelPage() {
         kib_bencana_id: approveKib,
         posko_id: approvePosko || null,
       };
-      if (approveName !== modalTarget.nama_personel) payload.name = approveName;
-      if (approveEmail) payload.email = approveEmail;
-      if (approvePhone) payload.phone = approvePhone;
 
       await approveSignup(modalTarget.id, payload);
       closeModal();
@@ -337,22 +337,6 @@ export function PersonnelPage() {
             </p>
 
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Nama">
-                  <Input
-                    value={approveName}
-                    onChange={(e) => setApproveName(e.target.value)}
-                  />
-                </Field>
-                <Field label="Email">
-                  <Input
-                    value={approveEmail}
-                    onChange={(e) => setApproveEmail(e.target.value)}
-                    placeholder={modalTarget.nama_personel.toLowerCase().replace(/\s+/g, ".") + "@logshield.id"}
-                  />
-                </Field>
-              </div>
-
               <Field label="Role">
                 <SelectField value={approveRole} onChange={(e) => setApproveRole(e.target.value)}>
                   <option value="koordinator">Koordinator</option>
@@ -370,19 +354,14 @@ export function PersonnelPage() {
               </Field>
 
               <Field label="Posko Assignment (opsional)">
-                <Input
-                  value={approvePosko}
-                  onChange={(e) => setApprovePosko(e.target.value)}
-                  placeholder="posko::kib-16-digit"
-                />
-              </Field>
-
-              <Field label="No. Telepon">
-                <Input
-                  value={approvePhone}
-                  onChange={(e) => setApprovePhone(e.target.value)}
-                  placeholder="081234567890"
-                />
+                <SelectField value={approvePosko} onChange={(e) => setApprovePosko(e.target.value)}>
+                  <option value="">Tidak ditugaskan</option>
+                  {poskoList.map((p) => (
+                    <option key={p._id} value={p._id}>
+                      {p.name} — {p.kib_16} ({p.district}, {p.province})
+                    </option>
+                  ))}
+                </SelectField>
               </Field>
             </div>
 
