@@ -17,6 +17,14 @@ import {
 import { aiRequest, syncAiDashboard } from "./ai.js";
 import { config } from "./config.js";
 import { bootstrapDatabase, checkCouchHealth, putDocument } from "./couchdb.js";
+import {
+  getDashboardNotifications,
+  getDashboardOverview,
+  getDashboardRegionalHeatmap,
+  getDashboardStockWeight,
+  getDashboardVulnerableFulfillment,
+  searchDashboard,
+} from "./dashboard.js";
 import { startDistributionSyncMarker } from "./distribution-sync.js";
 import { ingestStockReading, startMqttIngestion } from "./mqtt.js";
 import { createPosko, importPoskosFromCsv, listPoskos } from "./poskos.js";
@@ -280,6 +288,54 @@ app.post("/api/stocks", authenticateRequest, async (req, res, next) => {
   try {
     const result = await addStock(req.body || {}, req.auth);
     res.status(201).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/dashboard/overview", authenticateRequest, async (_req, res, next) => {
+  try {
+    res.json(await getDashboardOverview());
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/dashboard/stock-weight", authenticateRequest, async (req, res, next) => {
+  try {
+    res.json(await getDashboardStockWeight(req.query));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/dashboard/regional-heatmap", authenticateRequest, async (req, res, next) => {
+  try {
+    res.json(await getDashboardRegionalHeatmap(req.query));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/dashboard/vulnerable-fulfillment", authenticateRequest, async (_req, res, next) => {
+  try {
+    res.json(await getDashboardVulnerableFulfillment());
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/dashboard/search", authenticateRequest, async (req, res, next) => {
+  try {
+    res.json(await searchDashboard(req.query));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/dashboard/notifications", authenticateRequest, async (_req, res, next) => {
+  try {
+    res.json(await getDashboardNotifications());
   } catch (error) {
     next(error);
   }
