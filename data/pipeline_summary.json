@@ -1,0 +1,170 @@
+{
+  "status": "success",
+  "started_at": "2026-05-15T17:57:45",
+  "finished_at": "2026-05-15T17:58:18",
+  "steps": [
+    {
+      "name": "volcano_dataset",
+      "script": "prepare_gunung_meletus_data.py",
+      "returncode": 0,
+      "duration_seconds": 0.0,
+      "stdout_tail": [
+        "Skipped; existing artifact found: dataset\\Gunung-Meletus\\logshield_gunung_meletus.csv"
+      ],
+      "stderr_tail": [],
+      "skipped": true
+    },
+    {
+      "name": "prepare_data",
+      "script": "prepare_data.py",
+      "returncode": 0,
+      "duration_seconds": 10.91,
+      "stdout_tail": [
+        "  \"date_count\": 197,",
+        "  \"date_min\": \"2024-04-20\",",
+        "  \"date_max\": \"2026-01-02\",",
+        "  \"posko_count\": 316,",
+        "  \"item_count\": 383,",
+        "  \"synthetic_rows\": 194445,",
+        "  \"real_rows\": 892,",
+        "  \"errors\": [],",
+        "  \"error_count\": 0,",
+        "  \"raw_row_count_before_collapse\": 195401,",
+        "  \"collapsed_duplicate_rows\": 64,",
+        "  \"source_files\": [",
+        "    \"dataset/Banjir-Longsor/data_distribusi_final.csv\",",
+        "    \"dataset/Banjir-Longsor/data_pengungsi_bnpb_final.csv\",",
+        "    \"dataset/GempaBumi-tsunami/features_demografi.csv\",",
+        "    \"dataset/GempaBumi-tsunami/targets_logistik.csv\",",
+        "    \"dataset/Gunung-Meletus/logshield_gunung_meletus.csv\"",
+        "  ],",
+        "  \"output_csv\": \"data\\\\processed\\\\logshield_timeseries.csv\"",
+        "}"
+      ],
+      "stderr_tail": []
+    },
+    {
+      "name": "validate_data",
+      "script": "validate_data.py",
+      "returncode": 0,
+      "duration_seconds": 4.51,
+      "stdout_tail": [
+        "{",
+        "  \"dataset\": \"data\\\\processed\\\\logshield_timeseries.csv\",",
+        "  \"rows\": 195337,",
+        "  \"dates\": 197,",
+        "  \"date_min\": \"2024-04-20\",",
+        "  \"date_max\": \"2026-01-02\",",
+        "  \"poskos\": 316,",
+        "  \"items\": 383,",
+        "  \"errors\": [],",
+        "  \"error_count\": 0",
+        "}"
+      ],
+      "stderr_tail": []
+    },
+    {
+      "name": "forecasting",
+      "script": "train_baseline.py",
+      "returncode": 0,
+      "duration_seconds": 2.78,
+      "stdout_tail": [
+        "    \"mixed\": {",
+        "      \"series\": 0,",
+        "      \"average_mae\": null,",
+        "      \"average_mape\": null",
+        "    }",
+        "  },",
+        "  \"model_counts\": {",
+        "    \"moving_average_7\": 682,",
+        "    \"naive_last\": 256,",
+        "    \"seasonal_naive_7\": 3383",
+        "  },",
+        "  \"disaster_counts\": {",
+        "    \"gempa_bumi_tsunami\": 2917,",
+        "    \"gunung_meletus\": 1404",
+        "  },",
+        "  \"outputs\": {",
+        "    \"metrics\": \"data\\\\forecasting\\\\baseline_metrics.csv\",",
+        "    \"forecast\": \"data\\\\forecasting\\\\baseline_forecast_7d.csv\"",
+        "  }",
+        "}"
+      ],
+      "stderr_tail": []
+    },
+    {
+      "name": "recommendations",
+      "script": "build_recommendations.py",
+      "returncode": 0,
+      "duration_seconds": 2.57,
+      "stdout_tail": [
+        "      \"forecast_date\": \"2024-12-22\",",
+        "      \"kib_bencana_id\": \"BNC-2024-GM-LEWOTOBI\",",
+        "      \"posko_name\": \"Posko Konga\",",
+        "      \"item_name\": \"air_minum\",",
+        "      \"risk_level\": \"kritis\",",
+        "      \"priority_score\": 94.2,",
+        "      \"recommended_qty\": 4318.76",
+        "    },",
+        "    {",
+        "      \"forecast_date\": \"2024-12-23\",",
+        "      \"kib_bencana_id\": \"BNC-2024-GM-LEWOTOBI\",",
+        "      \"posko_name\": \"Posko Konga\",",
+        "      \"item_name\": \"air_minum\",",
+        "      \"risk_level\": \"kritis\",",
+        "      \"priority_score\": 94.2,",
+        "      \"recommended_qty\": 4318.76",
+        "    }",
+        "  ],",
+        "  \"output\": \"data\\\\recommendations\\\\distribution_recommendations.csv\"",
+        "}"
+      ],
+      "stderr_tail": []
+    },
+    {
+      "name": "anomalies",
+      "script": "detect_anomalies.py",
+      "returncode": 0,
+      "duration_seconds": 12.68,
+      "stdout_tail": [
+        "{",
+        "  \"input\": \"data\\\\processed\\\\logshield_timeseries.csv\",",
+        "  \"anomaly_events\": 12186,",
+        "  \"type_counts\": {",
+        "    \"critical_stock\": 9287,",
+        "    \"demand_spike\": 1337,",
+        "    \"fulfillment_gap\": 1086,",
+        "    \"stock_drop\": 476",
+        "  },",
+        "  \"severity_counts\": {",
+        "    \"high\": 4571,",
+        "    \"medium\": 7615",
+        "  },",
+        "  \"disaster_counts\": {",
+        "    \"banjir_longsor\": 1366,",
+        "    \"gempa_bumi_tsunami\": 4689,",
+        "    \"gunung_meletus\": 6131",
+        "  },",
+        "  \"output\": \"data\\\\anomalies\\\\anomaly_events.csv\"",
+        "}"
+      ],
+      "stderr_tail": []
+    },
+    {
+      "name": "artifact_smoke_test",
+      "script": "smoke_test_artifacts.py",
+      "returncode": 0,
+      "duration_seconds": 0.15,
+      "stdout_tail": [
+        "{",
+        "  \"status\": \"ready\",",
+        "  \"dataset_rows\": 195337,",
+        "  \"forecast_sample\": 3,",
+        "  \"recommendation_sample\": 3,",
+        "  \"anomaly_sample\": 3",
+        "}"
+      ],
+      "stderr_tail": []
+    }
+  ]
+}

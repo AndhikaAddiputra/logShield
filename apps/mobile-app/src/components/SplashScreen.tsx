@@ -29,7 +29,6 @@ export function SplashScreen() {
         <div className="flex size-24 items-center justify-center rounded-[2rem] shadow-2xl shadow-ls-accent/20 transition-transform active:scale-95">
           <img src={logoWhite} alt="LogShield" className="size-14 object-contain" />
         </div>
-        
         <div className="text-center">
           <h1 className="text-3xl font-bold tracking-tight text-white">LogShield</h1>
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-ls-accent-soft/60">
@@ -41,7 +40,7 @@ export function SplashScreen() {
       {/* Loading Progress */}
       <div className="absolute bottom-24 w-48 space-y-3">
         <div className="h-1 w-full overflow-hidden rounded-full bg-white/10">
-          <div 
+          <div
             className="h-full bg-ls-accent transition-all duration-300 ease-out"
             style={{ width: `${progress}%` }}
           />

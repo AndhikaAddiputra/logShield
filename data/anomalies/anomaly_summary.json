@@ -1,0 +1,20 @@
+{
+  "input": "data\\processed\\logshield_timeseries.csv",
+  "anomaly_events": 12186,
+  "type_counts": {
+    "critical_stock": 9287,
+    "demand_spike": 1337,
+    "fulfillment_gap": 1086,
+    "stock_drop": 476
+  },
+  "severity_counts": {
+    "high": 4571,
+    "medium": 7615
+  },
+  "disaster_counts": {
+    "banjir_longsor": 1366,
+    "gempa_bumi_tsunami": 4689,
+    "gunung_meletus": 6131
+  },
+  "output": "data\\anomalies\\anomaly_events.csv"
+}

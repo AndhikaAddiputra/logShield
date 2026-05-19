@@ -2,9 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   createAuditLogDoc,
+  createPoskoDoc,
+  createRequestDoc,
+  createStockMovementDoc,
   createStockReadingDoc,
   validateLogShieldDocument,
 } from "../src/document-schema.js";
+
+const POSKO_ID = "posko::550e8400-e29b-41d4-a716-446655440000";
 
 test("validates a PDF-aligned user document", () => {
   const doc = {
@@ -15,7 +20,7 @@ test("validates a PDF-aligned user document", () => {
     nik: "encrypted-nik-value",
     kib_bencana_id: "BNC-2026-JK-0001",
     role: "lapangan",
-    posko_id: "posko::1234567890123456",
+    posko_id: POSKO_ID,
     phone: "081234567890",
     avatar_url: "https://example.com/avatar.png",
     created_at: "2026-05-14T10:00:00.000Z",
@@ -67,7 +72,7 @@ test("rejects invalid user role", () => {
 
 test("validates a PDF-aligned posko document", () => {
   const doc = {
-    _id: "posko::1234567890123456",
+    _id: POSKO_ID,
     type: "posko",
     kib_16: "1234567890123456",
     name: "Posko Evakuasi Rajeg",
@@ -88,6 +93,34 @@ test("validates a PDF-aligned posko document", () => {
   };
 
   assert.equal(validateLogShieldDocument(doc), doc);
+});
+
+test("creates posko documents with generated ids and repeatable KIB", () => {
+  const input = {
+    kib_16: "1234567890123456",
+    name: "Posko Evakuasi Rajeg",
+    address: "Jl. Raya Rajeg",
+    province: "Banten",
+    district: "Kabupaten Tangerang",
+    total_pengungsi: 100,
+    count_balita: 10,
+    count_lansia: 12,
+    count_perempuan: 45,
+    count_pria: 43,
+    count_disabilitas: 3,
+    pj_name: "Athar",
+    pj_phone: "081234567890",
+  };
+
+  const first = createPoskoDoc(input, new Date("2026-05-14T10:00:00.000Z"));
+  const second = createPoskoDoc(input, new Date("2026-05-14T10:00:00.000Z"));
+
+  assert.match(first._id, /^posko::[0-9a-f-]{36}$/);
+  assert.match(second._id, /^posko::[0-9a-f-]{36}$/);
+  assert.notEqual(first._id, second._id);
+  assert.equal(first.kib_16, second.kib_16);
+  assert.equal(validateLogShieldDocument(first), first);
+  assert.equal(validateLogShieldDocument(second), second);
 });
 
 test("validates signup_request, auth_credential, and email_outbox documents", () => {
@@ -142,7 +175,7 @@ test("rejects invalid posko KIB", () => {
   assert.throws(
     () =>
       validateLogShieldDocument({
-        _id: "posko::123",
+        _id: POSKO_ID,
         type: "posko",
         kib_16: "123",
         name: "Posko",
@@ -161,7 +194,7 @@ test("rejects invalid posko KIB", () => {
         created_at: "2026-05-14T10:00:00.000Z",
         updated_at: "2026-05-14T10:00:00.000Z",
       }),
-    /_id has invalid format/
+    /kib_16 has invalid format/
   );
 });
 
@@ -169,7 +202,7 @@ test("rejects invalid posko status", () => {
   assert.throws(
     () =>
       validateLogShieldDocument({
-        _id: "posko::1234567890123456",
+        _id: POSKO_ID,
         type: "posko",
         kib_16: "1234567890123456",
         name: "Posko",
@@ -284,11 +317,55 @@ test("rejects prediction outside confidence interval", () => {
   );
 });
 
+test("creates and validates a logistics request document", () => {
+  const doc = createRequestDoc(
+    {
+      request_code: "REQ-20260515-001",
+      posko_id: POSKO_ID,
+      submitted_by: "user::athar",
+      status: "mendesak",
+      priority: "critical",
+      items: [
+        {
+          commodity: "Beras",
+          quantity: 500,
+          unit: "kg",
+          note: "Stok +-3 hari",
+        },
+      ],
+    },
+    new Date("2026-05-15T13:32:00.000Z")
+  );
+
+  assert.equal(doc._id, "request::REQ-20260515-001");
+  assert.equal(doc.processed_by, null);
+  assert.equal(doc.processed_at, null);
+  assert.equal(validateLogShieldDocument(doc), doc);
+});
+
+test("rejects invalid request fields", () => {
+  assert.throws(
+    () =>
+      createRequestDoc(
+        {
+          request_code: "REG-20260515-001",
+          posko_id: POSKO_ID,
+          submitted_by: "user::athar",
+          items: [],
+          status: "open",
+          priority: "urgent",
+        },
+        new Date("2026-05-15T13:32:00.000Z")
+      ),
+    /_id has invalid format|items must be a non-empty array|status must be one of|priority must be one of/
+  );
+});
+
 test("accepts prediction ID with posko document id inside it", () => {
   const doc = {
-    _id: "prediction::posko::1234567890123456::beras::2026-05-15",
+    _id: `prediction::${POSKO_ID}::beras::2026-05-15`,
     type: "prediction",
-    posko_id: "posko::1234567890123456",
+    posko_id: POSKO_ID,
     commodity: "beras",
     prediction_date: "2026-05-15",
     predicted_kg: 100,
@@ -310,6 +387,65 @@ test("accepts prediction ID with posko document id inside it", () => {
   assert.equal(validateLogShieldDocument(doc), doc);
 });
 
+test("validates synced AI recommendation and anomaly documents", () => {
+  const recommendation = {
+    _id: "ai_recommendation::1778752800000::abc::0001",
+    type: "ai_recommendation",
+    run_id: "1778752800000::abc",
+    forecast_date: "2026-05-15",
+    kib_bencana_id: "BNC-2026-JK-0001",
+    disaster_type: "banjir_longsor",
+    posko_id: "POSKO-001",
+    posko_name: "Posko Utama",
+    item_name: "beras",
+    unit: "kg",
+    recommended_qty: 120,
+    shortage_qty: 100,
+    coverage_days: 0.8,
+    risk_level: "kritis",
+    priority_score: 92.5,
+    trust_score: 0.82,
+    rationale_chips: ["Coverage stok kurang dari 1 hari."],
+    synced_at: "2026-05-14T10:00:00.000Z",
+  };
+  const anomaly = {
+    _id: "ai_anomaly::1778752800000::abc::0001",
+    type: "ai_anomaly",
+    run_id: "1778752800000::abc",
+    date: "2026-05-15",
+    kib_bencana_id: "BNC-2026-JK-0001",
+    disaster_type: "banjir_longsor",
+    posko_id: "POSKO-001",
+    posko_name: "Posko Utama",
+    item_name: "beras",
+    unit: "kg",
+    anomaly_type: "critical_stock",
+    severity: "high",
+    score: 0.95,
+    message: "Stok kritis.",
+    action_suggestion: "Restock segera.",
+    synced_at: "2026-05-14T10:00:00.000Z",
+  };
+
+  assert.equal(validateLogShieldDocument(recommendation), recommendation);
+  assert.equal(validateLogShieldDocument(anomaly), anomaly);
+});
+
+test("validates synced AI run summary document", () => {
+  const doc = {
+    _id: "ai_run_summary::1778752800000::abc",
+    type: "ai_run_summary",
+    status: "ready",
+    dataset: { rows: 195337 },
+    forecasting: { evaluated_series: 4321 },
+    recommendation_counts: { kritis: 10 },
+    anomaly_counts: { high: 5 },
+    synced_at: "2026-05-14T10:00:00.000Z",
+  };
+
+  assert.equal(validateLogShieldDocument(doc), doc);
+});
+
 test("creates append-only audit_log document shape", () => {
   const doc = createAuditLogDoc(
     {
@@ -326,5 +462,24 @@ test("creates append-only audit_log document shape", () => {
   );
 
   assert.match(doc._id, /^audit_log::1778752800000::/);
+  assert.equal(validateLogShieldDocument(doc), doc);
+});
+
+test("creates append-only stock_movement document shape", () => {
+  const doc = createStockMovementDoc(
+    {
+      warehouse_id: "WH-JKT-001",
+      commodity: "beras",
+      category: "pangan",
+      quantity: 500,
+      unit: "kg",
+      movement_type: "in",
+      source: "manual",
+      created_by: "user::athar",
+    },
+    new Date("2026-05-14T10:00:00.000Z")
+  );
+
+  assert.match(doc._id, /^stock_movement::1778752800000::/);
   assert.equal(validateLogShieldDocument(doc), doc);
 });

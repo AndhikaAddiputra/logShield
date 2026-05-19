@@ -1,151 +1,231 @@
-import { useState, useEffect } from 'react';
-import { RefreshCw, Utensils, Shirt, Tent, ChevronLeft, Activity, Loader2 } from 'lucide-react';
-import { API_BASE_URL, getAuthHeaders } from '../lib/api';
+import { useEffect, useState } from 'react';
+import { RefreshCw, AlertTriangle, Utensils, Shirt, Tent } from 'lucide-react';
+import { fetchAiDashboard, fetchStockSummary } from '../lib/api';
+import type { AiDashboardResponse, StockSummary } from '../lib/api';
+
+function numberValue(value: unknown, fallback = 0) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function rationaleChips(value: unknown) {
+  if (Array.isArray(value)) {
+    return value.map((chip) => {
+      if (typeof chip === 'string') return chip;
+      if (chip && typeof chip === 'object') {
+        const objectChip = chip as { narrative?: unknown; feature?: unknown };
+        return String(objectChip.narrative ?? objectChip.feature ?? '');
+      }
+      return String(chip ?? '');
+    }).filter(Boolean);
+  }
+  if (typeof value === 'string') {
+    return value
+      .split(/[;,|]/)
+      .map((chip) => chip.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
 
 export default function DashboardPage() {
-  const [selectedSector, setSelectedSector] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [aiData, setAiData] = useState<any>({ pangan: [], sandang: [], papan: [] });
+  const [summary, setSummary] = useState<StockSummary | null>(null);
+  const [aiData, setAiData] = useState<AiDashboardResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchAIRecommendations = async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/ai/recommendations/top-critical?limit=25`, {
-          headers: getAuthHeaders()
-        });
-        if (!res.ok) throw new Error("Gagal mengambil data AI");
-        const data = await res.json();
-        
-        // Mengelompokkan item berdasarkan unit/nama komoditas untuk UI
-        const grouped = { pangan: [] as any[], sandang: [] as any[], papan: [] as any[] };
-        
-        data.forEach((item: any) => {
-          const name = item.item_name.toLowerCase();
-          if (name.includes('beras') || name.includes('air') || name.includes('makanan') || item.unit === 'kg' || item.unit === 'liter') {
-            grouped.pangan.push(item);
-          } else if (name.includes('tenda') || name.includes('matras') || name.includes('shelter')) {
-            grouped.papan.push(item);
-          } else {
-            grouped.sandang.push(item); // Sisanya masuk sandang/lainnya
-          }
-        });
-        
-        setAiData(grouped);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchAIRecommendations();
-  }, []);
-
-  const sektorMeta: Record<string, any> = {
-    pangan: { title: 'Pangan & Air', icon: <Utensils className="w-5 h-5 text-orange-500" />, colorClass: 'text-orange-600', bgClass: 'bg-orange-50', borderClass: 'border-orange-100', narasi: 'Model AI mendeteksi anomali konsumsi tinggi pada sektor pangan dan hidrasi.' },
-    sandang: { title: 'Sandang & Sanitasi', icon: <Shirt className="w-5 h-5 text-blue-500" />, colorClass: 'text-blue-600', bgClass: 'bg-blue-50', borderClass: 'border-blue-100', narasi: 'Prioritas pemenuhan hygiene kit dan perlindungan suhu untuk kelompok rentan.' },
-    papan: { title: 'Papan & Shelter', icon: <Tent className="w-5 h-5 text-teal-500" />, colorClass: 'text-teal-600', bgClass: 'bg-teal-50', borderClass: 'border-teal-100', narasi: 'Indikasi rasio overload terdeteksi pada area penampungan utama.' }
+  const loadData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [s, ai] = await Promise.all([
+        fetchStockSummary().catch(() => null),
+        fetchAiDashboard(5).catch(() => null),
+      ]);
+      if (s) setSummary(s);
+      if (ai) setAiData(ai);
+    } catch (err: any) {
+      setError(err.message || 'Gagal memuat data');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  if (selectedSector) {
-    const meta = sektorMeta[selectedSector];
-    const items = aiData[selectedSector];
+  useEffect(() => {
+    loadData();
+  }, []);
 
-    return (
-      <div className="flex flex-col w-full bg-gray-50 min-h-screen">
-        <div className="bg-white p-4 border-b flex items-center gap-3 sticky top-0 z-10 shadow-sm">
-          <button onClick={() => setSelectedSector(null)} className="p-1 hover:bg-gray-100 rounded-lg">
-            <ChevronLeft className="w-6 h-6 text-blue-900" />
-          </button>
-          <div className="flex items-center gap-2">
-             {meta.icon}
-            <h2 className="text-xl font-black text-blue-900 uppercase tracking-tight">{meta.title}</h2>
-          </div>
-        </div>
-
-        <div className="p-5 space-y-4">
-          <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
-             <p className="text-gray-700 text-sm font-medium">{meta.narasi}</p>
-          </div>
-
-          <h3 className="text-xs font-bold text-gray-500 tracking-wider mt-4 mb-2 uppercase">Rekomendasi Model AI</h3>
-          
-          {items.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-4 bg-gray-100 rounded-lg">Aman. Tidak ada rekomendasi kritis.</p>
-          ) : (
-            <div className="space-y-3">
-              {items.map((m: any, idx: number) => (
-                <div key={idx} className="bg-white border border-gray-100 p-4 rounded-xl shadow-sm">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="font-bold text-gray-800 text-sm capitalize">{m.item_name}</span>
-                    <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded uppercase ${m.risk_level === 'High' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}>
-                      {m.risk_level} Risk
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2 pt-2 border-t border-gray-50 text-center">
-                    <div>
-                      <p className="text-[10px] text-gray-400 font-bold">REKOMENDASI</p>
-                      <p className="text-xs font-black text-blue-900">{m.recommended_qty} <span className="text-[10px]">{m.unit}</span></p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-gray-400 font-bold">DEFISIT</p>
-                      <p className="text-xs font-black text-red-600">{m.shortage_qty} <span className="text-[10px]">{m.unit}</span></p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-gray-400 font-bold">SISA COV</p>
-                      <p className="text-xs font-black text-gray-600">{m.coverage_days} Hari</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
+  const topCritical = aiData?.recommendations?.top_critical || [];
+  const riskCounts = aiData?.recommendations?.risk_counts || {};
+  const criticalCount = riskCounts.kritis ?? riskCounts.critical;
+  const recentAnomalies = aiData?.anomalies?.recent || [];
 
   return (
     <div className="flex flex-col w-full">
-      <div className="bg-green-700 text-white px-4 py-2 flex justify-between items-center text-xs font-bold tracking-wide">
+      <div className={`px-4 py-2 flex justify-between items-center text-xs font-bold tracking-wide ${summary ? 'bg-green-700' : 'bg-gray-600'} text-white`}>
         <div className="flex items-center gap-2">
-          <RefreshCw className="w-4 h-4 animate-spin" /><span>STATUS OFFLINE: SINKRON</span>
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          <span>
+            {loading ? 'MEMUAT...' : summary ? 'TERHUBUNG · SINKRON' : 'OFFLINE'}
+          </span>
         </div>
-        <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+        <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
       </div>
 
       <div className="p-5">
+        {error && (
+          <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+            <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
+            <p className="text-xs font-medium text-red-700">{error}</p>
+          </div>
+        )}
+
         <h2 className="text-2xl font-black text-blue-900 leading-tight mb-1">OPERATIONAL<br/>OVERVIEW</h2>
-        <div className="flex items-center justify-between mt-6 mb-4">
-          <h3 className="font-black text-lg text-gray-800 tracking-tight">PREDIKSI KEBUTUHAN AI</h3>
-          <span className="text-[10px] text-gray-400 font-bold bg-gray-100 px-2 py-1 rounded flex items-center gap-1">
-            <Activity className="w-3 h-3" /> KLIK DETAIL
-          </span>
+        <div className="flex items-center gap-2 mb-4 text-sm text-gray-500 font-medium">
+          <div className="w-1 h-4 bg-blue-500" />
+          {summary
+            ? `${summary.posko_served}/${summary.active_posko_count} Posko · ${summary.total_item} Item`
+            : 'Rajeg Timur - Posko Evakuasi'}
         </div>
 
-        {isLoading ? (
-           <div className="flex justify-center p-10"><Loader2 className="w-8 h-8 animate-spin text-blue-500" /></div>
-        ) : (
-          <div className="space-y-3">
-            {Object.keys(sektorMeta).map((key) => {
-              const meta = sektorMeta[key];
-              const alertCount = aiData[key].length;
-              return (
-                <div key={key} onClick={() => setSelectedSector(key)} className={`bg-white p-4 rounded-xl shadow-sm border ${meta.borderClass} cursor-pointer flex justify-between items-center`}>
-                  <div className="flex gap-4 items-center flex-1 pr-2 min-w-0">
-                    <div className={`${meta.bgClass} p-3 rounded-xl flex-shrink-0`}>{meta.icon}</div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className={`text-sm font-black uppercase tracking-tight truncate ${meta.colorClass}`}>{meta.title}</h4>
-                      <p className="text-xs text-gray-500 font-medium truncate mt-0.5">
-                        {alertCount > 0 ? `${alertCount} item butuh perhatian mendesak.` : 'Stok logistik terpantau aman.'}
-                      </p>
-                    </div>
-                  </div>
-                  <ChevronLeft className="w-5 h-5 text-gray-300 rotate-180 flex-shrink-0" />
-                </div>
-              );
-            })}
+        {summary && (
+          <div className="grid grid-cols-4 gap-2 mb-6">
+            <div className="bg-white rounded-lg p-3 text-center shadow-sm border">
+              <p className="text-lg font-black text-blue-900">{summary.total_item}</p>
+              <p className="text-[9px] font-bold text-gray-500">Total Item</p>
+            </div>
+            <div className="bg-white rounded-lg p-3 text-center shadow-sm border">
+              <p className="text-lg font-black text-red-600">{summary.critical_count}</p>
+              <p className="text-[9px] font-bold text-gray-500">Kritis</p>
+            </div>
+            <div className="bg-white rounded-lg p-3 text-center shadow-sm border">
+              <p className="text-lg font-black text-green-600">{summary.distribution_today}</p>
+              <p className="text-[9px] font-bold text-gray-500">Distribusi</p>
+            </div>
+            <div className="bg-white rounded-lg p-3 text-center shadow-sm border">
+              <p className="text-lg font-black text-blue-900">{summary.posko_served}</p>
+              <p className="text-[9px] font-bold text-gray-500">Posko</p>
+            </div>
           </div>
+        )}
+
+        {topCritical.length > 0 && (
+          <>
+            <h3 className="font-black text-lg text-gray-800 mb-4 tracking-tight">
+              KRITIS · REKOMENDASI PRIORITAS
+              {criticalCount != null && (
+                <span className="ml-2 text-xs font-bold text-red-500">
+                  ({criticalCount} kritis)
+                </span>
+              )}
+            </h3>
+            <div className="space-y-3 mb-8">
+              {topCritical.slice(0, 5).map((rec: any, idx: number) => {
+                const recommendedQty = numberValue(rec.recommended_qty);
+                const shortageQty = numberValue(rec.shortage_qty);
+                const coverageDays = numberValue(rec.coverage_days);
+                const priorityScore = numberValue(rec.priority_score);
+                const chips = rationaleChips(rec.rationale_chips);
+
+                return (
+                <div key={idx} className="bg-white p-4 rounded-xl shadow-sm border border-red-100">
+                  <div className="flex justify-between items-start mb-2">
+                    <span className="text-xs font-black text-red-600 tracking-widest uppercase">
+                      {rec.posko_name || rec.posko_id}
+                    </span>
+                    <span className="text-[10px] font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded">
+                      {rec.risk_level}
+                    </span>
+                  </div>
+                  <p className="text-sm font-medium text-gray-700">
+                    {rec.item_name}: butuh <span className="font-bold">{recommendedQty} {rec.unit}</span>
+                    {shortageQty > 0 && (
+                      <span className="text-red-600"> (kekurangan {shortageQty})</span>
+                    )}
+                  </p>
+                  {rec.coverage_days != null && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Coverage: {coverageDays} hari · Skor: {priorityScore.toFixed(1)}
+                    </p>
+                  )}
+                  {chips.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {chips.map((chip: string, i: number) => (
+                        <span key={i} className="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                          {chip}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        {recentAnomalies.length > 0 && (
+          <>
+            <h3 className="font-black text-lg text-gray-800 mb-3 tracking-tight">
+              ANOMALI TERBARU
+            </h3>
+            <div className="space-y-2 mb-8">
+              {recentAnomalies.slice(0, 3).map((anomaly: any, idx: number) => (
+                <div key={idx} className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <AlertTriangle className="w-4 h-4 text-orange-500 shrink-0" />
+                    <span className="text-xs font-bold text-orange-700 uppercase">{anomaly.anomaly_type}</span>
+                    <span className="text-[10px] font-bold text-orange-600 ml-auto">{anomaly.severity}</span>
+                  </div>
+                  <p className="text-xs text-orange-800">{anomaly.message}</p>
+                  {anomaly.action_suggestion && (
+                    <p className="text-[10px] text-orange-600 mt-1">Saran: {anomaly.action_suggestion}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {!topCritical.length && !recentAnomalies.length && !loading && (
+          <>
+            <h3 className="font-black text-lg text-gray-800 mb-4 tracking-tight">PREDIKSI KEBUTUHAN 72 JAM</h3>
+            <div className="space-y-4 mb-8">
+              <div className="bg-white p-4 rounded-xl shadow-sm border border-orange-100">
+                <div className="flex justify-between items-start mb-3">
+                  <span className="text-xs font-black text-orange-600 tracking-widest uppercase">Pangan & Air</span>
+                  <div className="bg-orange-50 p-2 rounded-lg">
+                    <Utensils className="w-5 h-5 text-orange-500" />
+                  </div>
+                </div>
+                <p className="text-sm font-medium text-gray-700 leading-relaxed">
+                  Estimasi kebutuhan untuk periode mendatang. Data akan tersedia setelah sinkronisasi dengan AI engine.
+                </p>
+              </div>
+              <div className="bg-white p-4 rounded-xl shadow-sm border border-blue-100">
+                <div className="flex justify-between items-start mb-3">
+                  <span className="text-xs font-black text-blue-600 tracking-widest uppercase">Sandang & Sanitasi</span>
+                  <div className="bg-blue-50 p-2 rounded-lg">
+                    <Shirt className="w-5 h-5 text-blue-500" />
+                  </div>
+                </div>
+                <p className="text-sm font-medium text-gray-700 leading-relaxed">
+                  Menunggu data rekomendasi dari AI engine.
+                </p>
+              </div>
+              <div className="bg-white p-4 rounded-xl shadow-sm border border-teal-100">
+                <div className="flex justify-between items-start mb-3">
+                  <span className="text-xs font-black text-teal-600 tracking-widest uppercase">Papan & Shelter</span>
+                  <div className="bg-teal-50 p-2 rounded-lg">
+                    <Tent className="w-5 h-5 text-teal-500" />
+                  </div>
+                </div>
+                <p className="text-sm font-medium text-gray-700 leading-relaxed">
+  Kapasitas dan kebutuhan shelter akan ditampilkan setelah data tersedia.
+                </p>
+              </div>
+            </div>
+          </>
         )}
       </div>
     </div>

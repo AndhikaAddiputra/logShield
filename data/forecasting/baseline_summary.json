@@ -1,0 +1,41 @@
+{
+  "input": "data\\processed\\logshield_timeseries.csv",
+  "target_column": "target_need_qty",
+  "horizon_days": 7,
+  "min_series_length": 14,
+  "evaluated_series": 4321,
+  "skipped_short_series": 416,
+  "forecast_rows": 30247,
+  "average_mae": 6.1867,
+  "average_mape": 1.5307,
+  "metric_breakdown": {
+    "real": {
+      "series": 0,
+      "average_mae": null,
+      "average_mape": null
+    },
+    "synthetic": {
+      "series": 4321,
+      "average_mae": 6.1867,
+      "average_mape": 1.5307
+    },
+    "mixed": {
+      "series": 0,
+      "average_mae": null,
+      "average_mape": null
+    }
+  },
+  "model_counts": {
+    "moving_average_7": 682,
+    "naive_last": 256,
+    "seasonal_naive_7": 3383
+  },
+  "disaster_counts": {
+    "gempa_bumi_tsunami": 2917,
+    "gunung_meletus": 1404
+  },
+  "outputs": {
+    "metrics": "data\\forecasting\\baseline_metrics.csv",
+    "forecast": "data\\forecasting\\baseline_forecast_7d.csv"
+  }
+}

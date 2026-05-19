@@ -1,7 +1,7 @@
 services:
   # CouchDB
   couchdb:
-    image: couchdb:3.2
+    image: couchdb:3
     container_name: logshield-couchdb
     ports:
       - "5984:5984"
@@ -22,7 +22,7 @@ services:
 
   # MQTT Broker (Mosquitto)
   mosquitto:
-    image: eclipse-mosquitto:2.0
+    image: eclipse-mosquitto:2
     container_name: logshield-mosquitto
     ports:
       - "1883:1883"
@@ -67,7 +67,7 @@ services:
       MQTT_STOCK_TOPIC: ${MQTT_STOCK_TOPIC:-logshield/stock/+}
       MQTT_USER: ${MQTT_USER:-}
       MQTT_PASSWORD: ${MQTT_PASSWORD:-}
-      AI_ENGINE_URL: ${AI_ENGINE_URL:-http://localhost:8000}
+      AI_ENGINE_URL: ${AI_ENGINE_URL:-http://ai-engine:8000}
       DEV_LOGIN_EMAIL: ${DEV_LOGIN_EMAIL:-athar@athar.com}
       DEV_LOGIN_USERNAME: ${DEV_LOGIN_USERNAME:-athar}
       DEV_LOGIN_NIK: ${DEV_LOGIN_NIK:-1234123412341234}
@@ -76,6 +76,8 @@ services:
       couchdb:
         condition: service_healthy
       mosquitto:
+        condition: service_healthy
+      ai-engine:
         condition: service_healthy
     volumes:
       - ./logs:/app/logs
@@ -88,6 +90,24 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+
+  # AI Engine (FastAPI artifacts service)
+  ai-engine:
+    build:
+      context: ../
+      dockerfile: apps/ai-engine/Dockerfile
+    container_name: logshield-ai-engine
+    ports:
+      - "8000:8000"
+    networks:
+      - logshield_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
 
 networks:
   logshield_network:
