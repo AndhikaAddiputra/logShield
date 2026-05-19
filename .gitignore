@@ -14,7 +14,17 @@ coverage/
 __pycache__/
 *.py[cod]
 .venv/
+.venv-ttm/
+.tools/
 venv/
+data/processed/logshield_training_dataset.csv
+data/processed/logshield_statsforecast_dataset.csv
+data/processed/logshield_tinytimemixer_windows.jsonl
+data/statsforecast/statsforecast_backtest.csv
+data/statsforecast/statsforecast_forecast_7d.csv
+data/tinytimemixer/logshield_ttm_arrays.npz
+data/explainability/shap_background.csv
+apps/ai-engine/models/statsforecast/*.pkl
 .idea/
 .vscode/
 *.swp

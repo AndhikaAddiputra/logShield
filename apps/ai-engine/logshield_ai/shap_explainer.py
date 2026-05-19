@@ -1,0 +1,55 @@
+from __future__ import annotations
+
+NUMERIC_EXPLANATION_FEATURES = [
+    "day_since_disaster",
+    "day_of_week",
+    "is_weekend",
+    "total_pengungsi",
+    "total_kk",
+    "bayi",
+    "balita",
+    "anak",
+    "remaja",
+    "dewasa",
+    "lansia",
+    "ibu_hamil",
+    "ibu_menyusui",
+    "disabilitas",
+    "vulnerable_count",
+    "vulnerable_ratio",
+    "stock_in_qty",
+    "distributed_qty",
+    "requested_qty",
+    "current_stock_qty",
+    "critical_stock_threshold",
+    "stock_coverage_days",
+    "need_qty_lag_1",
+    "need_qty_lag_3",
+    "need_qty_lag_7",
+    "distributed_qty_lag_1",
+    "distributed_qty_lag_3",
+    "stock_qty_lag_1",
+    "rolling_need_mean_3",
+    "rolling_need_mean_7",
+    "rolling_distributed_mean_7",
+    "rolling_stock_mean_7",
+]
+
+
+def shap_chip(feature: str) -> str:
+    chips = {
+        "current_stock_qty": "Stok saat ini memberi pengaruh besar pada hasil rekomendasi.",
+        "stock_coverage_days": "Coverage stok menjadi faktor utama dalam penilaian risiko.",
+        "target_need_qty": "Kebutuhan historis menjadi sinyal utama prediksi berikutnya.",
+        "need_qty_lag_1": "Kebutuhan hari sebelumnya memengaruhi prediksi kebutuhan.",
+        "need_qty_lag_3": "Tren kebutuhan 3 hari terakhir memengaruhi prediksi.",
+        "need_qty_lag_7": "Pola mingguan kebutuhan memengaruhi prediksi.",
+        "rolling_need_mean_3": "Rata-rata kebutuhan 3 hari terakhir menjadi sinyal penting.",
+        "rolling_need_mean_7": "Rata-rata kebutuhan mingguan menjadi sinyal penting.",
+        "total_pengungsi": "Jumlah pengungsi menaikkan estimasi kebutuhan.",
+        "vulnerable_count": "Jumlah kelompok rentan menaikkan prioritas bantuan.",
+        "vulnerable_ratio": "Rasio kelompok rentan memengaruhi prioritas distribusi.",
+        "distributed_qty": "Distribusi terakhir memengaruhi estimasi kekurangan.",
+        "requested_qty": "Permintaan logistik terakhir memengaruhi estimasi kebutuhan.",
+    }
+    return chips.get(feature, f"Fitur {feature} berpengaruh pada hasil prediksi.")

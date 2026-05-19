@@ -14,6 +14,8 @@ STEPS = [
     ("volcano_dataset", "prepare_gunung_meletus_data.py", ROOT / "dataset" / "Gunung-Meletus" / "logshield_gunung_meletus.csv"),
     ("prepare_data", "prepare_data.py", None),
     ("validate_data", "validate_data.py", None),
+    ("training_dataset", "build_training_dataset.py", None),
+    ("training_dataset_smoke_test", "smoke_test_training_dataset.py", None),
     ("forecasting", "train_baseline.py", None),
     ("recommendations", "build_recommendations.py", None),
     ("anomalies", "detect_anomalies.py", None),
