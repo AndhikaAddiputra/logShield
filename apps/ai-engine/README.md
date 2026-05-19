@@ -207,6 +207,13 @@ TTM inference smoke test:
 python apps/ai-engine/scripts/smoke_test_inference.py
 ```
 
+Inference mode:
+
+- `time_series`: dipakai saat payload memiliki 30 hari `history`.
+- `cold_start`: dipakai otomatis saat `history` kurang dari 30 hari atau kosong.
+
+Cold start menggunakan standar kebutuhan per orang, jumlah pengungsi, kelompok rentan, stok saat ini, permintaan terbaru, dan batas stok kritis. Output tetap melewati recommendation engine yang sama, tetapi response diberi `inference_mode: "cold_start"` dan rationale khusus bahwa rekomendasi awal dibuat karena riwayat posko belum mencapai 30 hari.
+
 ## Rebuild All Artifacts
 
 Jalankan seluruh pipeline dari data preparation sampai smoke test:
