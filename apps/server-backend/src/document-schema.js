@@ -417,16 +417,20 @@ function validatePrediction(doc) {
   requiredString(doc.posko_id, "posko_id");
   requiredString(doc.commodity, "commodity");
   isoDate(doc.prediction_date, "prediction_date");
-  requiredNumber(doc.predicted_kg, "predicted_kg");
+  const predictedValue = doc.predicted_kg === null || doc.predicted_kg === undefined
+    ? requiredNumber(doc.predicted_qty, "predicted_qty")
+    : requiredNumber(doc.predicted_kg, "predicted_kg");
+  optionalString(doc.unit, "unit");
   requiredNumber(doc.confidence_low, "confidence_low");
   requiredNumber(doc.confidence_high, "confidence_high");
-  if (doc.confidence_low > doc.predicted_kg || doc.predicted_kg > doc.confidence_high) {
-    throw new ValidationError("predicted_kg must be within confidence_low and confidence_high");
+  if (doc.confidence_low > predictedValue || predictedValue > doc.confidence_high) {
+    throw new ValidationError("predicted_kg or predicted_qty must be within confidence_low and confidence_high");
   }
-  requiredNumber(doc.mae_last_7d, "mae_last_7d");
-  assertObject(doc.shap_values, "shap_values");
-  for (const [key, value] of Object.entries(doc.shap_values)) {
-    requiredNumber(value, `shap_values.${key}`);
+  if (doc.mae_last_7d !== null) requiredNumber(doc.mae_last_7d, "mae_last_7d");
+  const attributionValues = doc.shap_values || doc.attribution_values;
+  assertObject(attributionValues, doc.shap_values ? "shap_values" : "attribution_values");
+  for (const [key, value] of Object.entries(attributionValues)) {
+    requiredNumber(value, `${doc.shap_values ? "shap_values" : "attribution_values"}.${key}`);
   }
   if (!Array.isArray(doc.rationale_chips)) {
     throw new ValidationError("rationale_chips must be an array");
@@ -435,8 +439,12 @@ function validatePrediction(doc) {
     assertObject(chip, `rationale_chips.${index}`);
     requiredString(chip.feature, `rationale_chips.${index}.feature`);
     requiredString(chip.narrative, `rationale_chips.${index}.narrative`);
-    requiredNumber(chip.shap_value, `rationale_chips.${index}.shap_value`);
+    requiredNumber(
+      chip.shap_value ?? chip.attribution_value,
+      `rationale_chips.${index}.${chip.shap_value === undefined ? "attribution_value" : "shap_value"}`
+    );
   });
+  optionalString(doc.attribution_method, "attribution_method");
   requiredString(doc.model_version, "model_version");
   isoTimestamp(doc.created_at, "created_at");
   return doc;

@@ -25,7 +25,7 @@ def risk_level(coverage_days: float, shortage_qty: float) -> str:
     return "aman"
 
 
-def trust_score(series_length: int, is_synthetic_series: str, model_mape: float | None) -> float:
+def trust_score(series_length: int, model_mape: float | None) -> float:
     score = 0.55
     if series_length >= 30:
         score += 0.18
@@ -36,10 +36,6 @@ def trust_score(series_length: int, is_synthetic_series: str, model_mape: float 
             score += 0.18
         elif model_mape <= 20:
             score += 0.10
-    if is_synthetic_series == "true":
-        score -= 0.08
-    if is_synthetic_series == "mixed":
-        score -= 0.04
     return round(min(max(score, 0.0), 0.98), 2)
 
 
@@ -110,7 +106,6 @@ def recommend_distribution(
     total_pengungsi: int,
     vulnerable_count: int,
     series_length: int,
-    is_synthetic_series: str,
     model_mape: float | None,
 ) -> Recommendation:
     base_safety_stock = max(forecast_qty * 0.35, critical_stock_threshold)
@@ -121,7 +116,7 @@ def recommend_distribution(
     recommended_qty = round(shortage_qty, 2)
     coverage_days = current_stock_qty / forecast_qty if forecast_qty > 0 else 99.0
     risk = risk_level(coverage_days, shortage_qty)
-    trust = trust_score(series_length, is_synthetic_series, model_mape)
+    trust = trust_score(series_length, model_mape)
 
     return Recommendation(
         recommended_qty=recommended_qty,
