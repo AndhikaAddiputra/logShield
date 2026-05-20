@@ -125,6 +125,7 @@ export default function DashboardPage() {
                 const shortageQty = numberValue(rec.shortage_qty);
                 const coverageDays = numberValue(rec.coverage_days);
                 const priorityScore = numberValue(rec.priority_score);
+                const trustScore = numberValue(rec.trust_score);
                 const chips = rationaleChips(rec.rationale_chips);
 
                 return (
@@ -137,6 +138,11 @@ export default function DashboardPage() {
                       {rec.risk_level}
                     </span>
                   </div>
+                  {rec.inference_mode === 'cold_start' && (
+                    <span className="inline-flex mb-2 text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded">
+                      Estimasi awal
+                    </span>
+                  )}
                   <p className="text-sm font-medium text-gray-700">
                     {rec.item_name}: butuh <span className="font-bold">{recommendedQty} {rec.unit}</span>
                     {shortageQty > 0 && (
@@ -145,7 +151,7 @@ export default function DashboardPage() {
                   </p>
                   {rec.coverage_days != null && (
                     <p className="text-xs text-gray-500 mt-1">
-                      Coverage: {coverageDays} hari · Skor: {priorityScore.toFixed(1)}
+                      Coverage: {coverageDays} hari · Skor: {priorityScore.toFixed(1)} · Trust: {trustScore.toFixed(2)}
                     </p>
                   )}
                   {chips.length > 0 && (

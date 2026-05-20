@@ -277,7 +277,14 @@ These routes require a backend JWT.
 
 ### `POST /api/ai/infer/need`
 
-Runs TinyTimeMixer need forecasting for one time series. The payload must contain exactly 30 historical daily points.
+Runs the active TinyTimeMixer recommendation stack for one posko/item series. The backend proxies this through the AI engine and normalizes the response for mobile/web.
+
+Inference modes:
+
+- `time_series`: used when `history` contains 30 daily points.
+- `cold_start`: used when `history` is empty or shorter than 30 points.
+
+StatsForecast remains a baseline artifact for comparison only; it is not the live inference path.
 
 ```http
 POST /api/ai/infer/need
@@ -299,8 +306,8 @@ Minimal request shape:
   "total_pengungsi": 250,
   "vulnerable_count": 80,
   "current_stock_qty": 120,
+  "requested_qty": 300,
   "critical_stock_threshold": 100,
-  "is_synthetic_series": "false",
   "history": [
     {
       "date": "2026-05-01",
@@ -317,11 +324,15 @@ Response fields:
 
 - `model_version`
 - `model_backend`
+- `inference_mode`
 - `forecast`
+- `prediction_documents`
+
+Cold-start requests may send `"history": []`; the AI engine still returns 7 forecast days.
 
 ### `POST /api/ai/infer/recommendation`
 
-Runs TinyTimeMixer forecasting and converts the forecast into distribution recommendations.
+Runs TinyTimeMixer forecasting or cold-start estimation, then converts the forecast into distribution recommendations with operational rationale and explainability.
 
 ```http
 POST /api/ai/infer/recommendation
@@ -335,8 +346,28 @@ Response fields:
 
 - `model_version`
 - `model_backend`
+- `inference_mode`
+- `horizon_days`
 - `daily_recommendations`
 - `top_recommendation`
+- `prediction_documents`
+- `explainability`
+
+Normalized recommendation fields:
+
+- `recommended_qty`
+- `shortage_qty`
+- `coverage_days`
+- `risk_level`
+- `priority_score`
+- `trust_score`
+- `rationale_chips`
+- `rationale_chip_details`
+
+Frontend usage:
+
+- Mobile should show only 2-3 short `rationale_chips` and show an `Estimasi awal` indicator when `inference_mode` is `cold_start`.
+- Web dashboard can show the 7-day forecast, top critical rows, and expanded attribution details from `rationale_chip_details` or `explainability`.
 
 Note: local TTM inference requires the `.venv-ttm` runtime described in `apps/ai-engine/README.md`. Without it, inference endpoints return a service-unavailable error from the AI engine.
 
@@ -418,6 +449,8 @@ Created CouchDB document types:
 - `ai_recommendation`
 - `ai_anomaly`
 
+AI snapshots preserve available model metadata such as `model_version`, `inference_mode`, and explainability fields when present.
+
 ## CouchDB Snapshot Verification
 
 ```powershell
@@ -455,8 +488,10 @@ ai_anomaly          found 1
 - Use `/api/ai/dashboard` for dashboard cards, top critical recommendations, and recent anomalies.
 - Use `/api/ai/recommendations/top-critical` for a dedicated recommendations table.
 - Use `/api/ai/anomalies/recent` for anomaly alert panels.
+- Use `/api/ai/infer/recommendation` when the UI needs live decision support for a specific posko/item.
 - Use `/api/ai/sync` only from admin tooling, not public UI.
 - Read routes currently do not require JWT; admin mutation/sync routes require JWT.
+- Treat AI output as decision support. Petugas/koordinator still validate stock and field conditions before final distribution decisions.
 
 ## Error Shape
 

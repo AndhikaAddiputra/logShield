@@ -8,6 +8,13 @@ import numpy as np
 import torch
 from tsfm_public import TinyTimeMixerForPrediction
 
+CHANNEL_NAMES = [
+    "past_target_need_qty",
+    "past_current_stock_qty",
+    "past_distributed_qty",
+    "past_requested_qty",
+]
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run TinyTimeMixer inference for one LogShield 14-day window.")
@@ -35,10 +42,25 @@ def main() -> int:
     past_values = torch.tensor(x, dtype=torch.float32).unsqueeze(0)
     model = TinyTimeMixerForPrediction.from_pretrained(Path(args.model_dir))
     model.eval()
-    with torch.no_grad():
-        output = model(past_values=past_values, return_loss=False)
-    forecast = torch.expm1(output.prediction_outputs[0, :, 0]).clamp(min=0).cpu().numpy().tolist()
-    print(json.dumps({"forecast": [round(float(value), 2) for value in forecast]}))
+    past_values.requires_grad_(True)
+    output = model(past_values=past_values, return_loss=False)
+    objective = output.prediction_outputs[0, :, 0].sum()
+    objective.backward()
+    forecast = torch.expm1(output.prediction_outputs[0, :, 0]).clamp(min=0).detach().cpu().numpy().tolist()
+    raw_attr = (past_values.grad * past_values).abs().sum(dim=1).squeeze(0)
+    total_attr = float(raw_attr.sum().detach().cpu()) or 1.0
+    attribution = {
+        name: round(float(value.detach().cpu()) / total_attr, 6)
+        for name, value in zip(CHANNEL_NAMES, raw_attr)
+    }
+    print(
+        json.dumps(
+            {
+                "forecast": [round(float(value), 2) for value in forecast],
+                "attribution": attribution,
+            }
+        )
+    )
     return 0
 
 
