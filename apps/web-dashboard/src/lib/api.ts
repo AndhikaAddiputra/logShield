@@ -351,6 +351,19 @@ export function addStock(payload: AddStockPayload) {
   });
 }
 
+export function updateAsset(id: string, payload: { category?: string; unit?: string; min_threshold?: number }) {
+  return request<AddStockResponse>(`/api/stocks/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteAsset(id: string) {
+  return request<{ ok: boolean }>(`/api/stocks/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}
+
 export interface RequestItemUI {
   name: string;
   quantity: string;
@@ -639,4 +652,38 @@ export function updateNotificationSettings(payload: { email?: boolean; app?: boo
     method: "PATCH",
     body: JSON.stringify(payload),
   });
+}
+
+export interface AiInferenceResult {
+  item_name: string;
+  item_category: string;
+  unit: string;
+  current_stock_qty: number;
+  critical_stock_threshold: number;
+  history_days: number;
+  risk_level: string | null;
+  recommended_qty: number;
+  shortage_qty: number;
+  coverage_days: number;
+  priority_score: number;
+  trust_score: number;
+  inference_mode: string;
+  rationale_chips: string[];
+  daily_recommendations: Record<string, unknown>[];
+  error: string | null;
+}
+
+export function triggerAiInference(poskoId: string) {
+  return request<{
+    ok: boolean;
+    posko_id: string;
+    posko_name: string;
+    items_analyzed: number;
+    items: Record<string, unknown>[];
+    results: AiInferenceResult[];
+    stored_predictions: number;
+  }>(
+    `/api/ai/infer/posko/${poskoId}`,
+    { method: "POST" }
+  );
 }

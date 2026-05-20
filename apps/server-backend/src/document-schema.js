@@ -44,14 +44,14 @@ const signupRequestStatuses = ["pending", "approved", "rejected"];
 const authCredentialStatuses = ["active", "inactive"];
 const emailOutboxStatuses = ["queued", "sent", "failed"];
 const distributionUnits = ["kg", "liter", "pcs", "karton", "kit"];
-const assetUnits = ["kg", "pcs", "karton", "unit"];
+const assetUnits = ["kg", "liter", "pcs", "karton", "unit"];
 const vulnerableGroups = ["umum", "balita", "lansia", "ibu_hamil", "disabilitas"];
 const requestStatuses = ["mendesak", "menunggu", "diproses", "selesai"];
 const requestPriorities = ["critical", "high", "normal", "low"];
 const assetCategories = ["sandang", "pangan", "papan", "lainnya"];
 const auditStatuses = ["sukses", "ditolak", "timeout", "error"];
 const stockMovementTypes = ["in", "out"];
-const stockMovementSources = ["manual", "distribution", "sensor"];
+const stockMovementSources = ["manual", "distribution", "sensor", "request_completion"];
 
 export function validateLogShieldDocument(doc) {
   assertObject(doc, "document");

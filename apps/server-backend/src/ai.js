@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { config } from "./config.js";
-import { bulkDocuments } from "./couchdb.js";
+import { bulkDocuments, findDocuments, getDocument } from "./couchdb.js";
 import { validateLogShieldDocument } from "./document-schema.js";
 
 export async function aiRequest(path, options = {}) {
@@ -262,4 +262,387 @@ export class AiEngineError extends Error {
     this.statusCode = statusCode;
     this.body = body;
   }
+}
+
+export async function inferRecommendation(payload) {
+  const raw = await aiRequest("/infer/recommendation", {
+    method: "POST",
+    body: payload,
+  });
+  return normalizeAiRecommendationResponse(raw);
+}
+
+export async function inferNeed(payload) {
+  const raw = await aiRequest("/infer/need", {
+    method: "POST",
+    body: payload,
+  });
+  return normalizeAiNeedResponse(raw);
+}
+
+const DEFAULT_COMMODITY_SPECS = [
+  { key: "air_bersih", category: "pangan", unit: "liter" },
+  { key: "air_minum", category: "pangan", unit: "liter" },
+  { key: "beras", category: "pangan", unit: "kg" },
+  { key: "mie_instan", category: "pangan", unit: "pcs" },
+  { key: "minyak_goreng", category: "pangan", unit: "liter" },
+  { key: "protein", category: "pangan", unit: "kg" },
+  { key: "mpasi", category: "pangan", unit: "kg" },
+  { key: "hygiene_kit", category: "sandang", unit: "kit" },
+  { key: "selimut", category: "sandang", unit: "pcs" },
+  { key: "matras", category: "sandang", unit: "pcs" },
+  { key: "masker", category: "sandang", unit: "pcs" },
+  { key: "obat_obatan", category: "sandang", unit: "pcs" },
+  { key: "pembalut", category: "sandang", unit: "pcs" },
+  { key: "popok_bayi", category: "sandang", unit: "pcs" },
+];
+
+export async function inferPoskoCommodities(poskoId) {
+  const posko = await getDocument(poskoId);
+  const assetSelector = { type: "asset" };
+  const assetResult = await findDocuments(assetSelector, { limit: 500 });
+  const assets = assetResult.docs || [];
+
+  const requestResult = await findDocuments(
+    { type: "request", posko_id: poskoId },
+    { limit: 500 }
+  );
+  const requests = (requestResult.docs || []).filter((r) => r.posko_id === poskoId);
+
+  const movementResult = await findDocuments(
+    { type: "stock_movement" },
+    { limit: 1000 }
+  );
+  const movements = (movementResult.docs || []).filter(
+    (m) => m.posko_id === poskoId || m.warehouse_id === poskoId
+  );
+
+  const commodityGroups = groupRequestsByCommodity(requests, movements);
+
+  const assetCommodities = {};
+  const normalizedAssetKeys = new Set();
+  for (const a of assets) {
+    const key = a.commodity || a.name || "unknown";
+    normalizedAssetKeys.add(normalizeItemName(key));
+    if (!assetCommodities[key]) {
+      assetCommodities[key] = { category: a.category || "lainnya", unit: a.unit || "unit", stock: a.quantity_available || 0, threshold: a.min_threshold || 0 };
+    }
+  }
+  for (const spec of DEFAULT_COMMODITY_SPECS) {
+    if (normalizedAssetKeys.has(normalizeItemName(spec.key))) continue;
+    assetCommodities[spec.key] = {
+      category: spec.category,
+      unit: spec.unit,
+      stock: 0,
+      threshold: 0,
+    };
+  }
+
+  if (Object.keys(commodityGroups).length === 0) {
+    for (const [commodity, info] of Object.entries(assetCommodities)) {
+      commodityGroups[commodity] = { totalRequested: 0, dailyHistory: [], assetInfo: info };
+    }
+  } else {
+    for (const [commodity, info] of Object.entries(assetCommodities)) {
+      if (!commodityGroups[commodity]) {
+        commodityGroups[commodity] = { totalRequested: 0, dailyHistory: [], assetInfo: info };
+      }
+    }
+  }
+  const kibBencanaId = posko.kib_bencana_id || posko.kib_16 || poskoId;
+  const disasterType = inferDisasterType(kibBencanaId);
+
+  const vulnerableCount =
+    (posko.count_balita || 0) +
+    (posko.count_lansia || 0) +
+    (posko.count_disabilitas || 0);
+
+  const results = [];
+
+  for (const [commodity, group] of Object.entries(commodityGroups)) {
+    const asset = assets.find((a) => a.commodity === commodity) || group.assetInfo || {};
+    const history = group.dailyHistory.slice(-30);
+
+    const payload = {
+      kib_bencana_id: kibBencanaId,
+      disaster_type: disasterType,
+      posko_id: poskoId,
+      posko_name: posko.name || poskoId,
+      item_name: commodity,
+      item_category: asset?.category || "lainnya",
+      unit: asset?.unit || "unit",
+      total_pengungsi: posko.total_pengungsi || 0,
+      vulnerable_count: vulnerableCount,
+      current_stock_qty: asset?.quantity_available || 0,
+      requested_qty: group.totalRequested || 0,
+      critical_stock_threshold: asset?.min_threshold || 0,
+      history,
+    };
+
+    let recommendation = null;
+    let error = null;
+    try {
+      recommendation = await inferRecommendation(payload);
+    } catch (err) {
+      error = err.message || String(err);
+    }
+
+    results.push({
+      commodity,
+      category: asset?.category || "lainnya",
+      unit: asset?.unit || "unit",
+      current_stock: asset?.quantity_available || 0,
+      critical_threshold: asset?.min_threshold || 0,
+      history_days: history.length,
+      history,
+      recommendation,
+      error,
+    });
+  }
+
+  const docsToStore = results
+    .filter((r) => r.recommendation?.prediction_documents)
+    .flatMap((r) => r.recommendation.prediction_documents)
+    .map((doc) => {
+      validateLogShieldDocument(doc);
+      return doc;
+    });
+
+  if (docsToStore.length > 0) {
+    await bulkDocuments(docsToStore);
+  }
+
+  return {
+    ok: true,
+    posko_id: poskoId,
+    posko_name: posko.name,
+    kib_bencana_id: kibBencanaId,
+    disaster_type: disasterType,
+    total_pengungsi: posko.total_pengungsi,
+    vulnerable_count: vulnerableCount,
+    items_analyzed: results.length,
+    items: results,
+    results: results.map((r) => ({
+      item_name: r.commodity,
+      item_category: r.category,
+      unit: r.unit,
+      current_stock_qty: r.current_stock,
+      critical_stock_threshold: r.critical_threshold,
+      history_days: r.history_days,
+      risk_level: r.recommendation?.top_recommendation?.risk_level || null,
+      recommended_qty: r.recommendation?.top_recommendation?.recommended_qty || 0,
+      shortage_qty: r.recommendation?.top_recommendation?.shortage_qty || 0,
+      coverage_days: r.recommendation?.top_recommendation?.coverage_days || 0,
+      priority_score: r.recommendation?.top_recommendation?.priority_score || 0,
+      trust_score: r.recommendation?.top_recommendation?.trust_score || 0,
+      inference_mode: r.recommendation?.inference_mode || "cold_start",
+      rationale_chips: r.recommendation?.top_recommendation?.rationale_chips || [],
+      daily_recommendations: r.recommendation?.daily_recommendations || [],
+      error: r.error || null,
+    })),
+    stored_predictions: docsToStore.length,
+  };
+}
+
+function groupRequestsByCommodity(requests, movements) {
+  const groups = {};
+  const dateMap = {};
+
+  for (const req of requests) {
+    const date = (req.created_at || "").slice(0, 10);
+    if (!date) continue;
+    for (const item of req.items || []) {
+      const commodity = item.commodity || item.name || "unknown";
+      if (!groups[commodity]) groups[commodity] = { totalRequested: 0, dailyHistory: [] };
+      if (!dateMap[commodity]) dateMap[commodity] = {};
+      if (!dateMap[commodity][date]) dateMap[commodity][date] = { target_need_qty: 0, current_stock_qty: 0, distributed_qty: 0, requested_qty: 0 };
+      dateMap[commodity][date].requested_qty += Number(item.quantity || item.qty || 0);
+      dateMap[commodity][date].target_need_qty += Number(item.quantity || item.qty || 0);
+      groups[commodity].totalRequested += Number(item.quantity || item.qty || 0);
+    }
+  }
+
+  for (const mov of movements) {
+    const date = (mov.created_at || "").slice(0, 10);
+    if (!date) continue;
+    const commodity = mov.commodity || "unknown";
+    if (!groups[commodity]) groups[commodity] = { totalRequested: 0, dailyHistory: [] };
+    if (!dateMap[commodity]) dateMap[commodity] = {};
+    if (!dateMap[commodity][date]) dateMap[commodity][date] = { target_need_qty: 0, current_stock_qty: 0, distributed_qty: 0, requested_qty: 0 };
+    if (mov.movement_type === "keluar" || mov.type === "distribution") {
+      dateMap[commodity][date].distributed_qty += Number(mov.quantity || 0);
+    } else {
+      dateMap[commodity][date].current_stock_qty += Number(mov.quantity || 0);
+    }
+  }
+
+  for (const [commodity, dates] of Object.entries(dateMap)) {
+    groups[commodity].dailyHistory = Object.entries(dates)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, values]) => ({
+        date,
+        target_need_qty: values.target_need_qty || 0,
+        current_stock_qty: values.current_stock_qty || 0,
+        distributed_qty: values.distributed_qty || 0,
+        requested_qty: values.requested_qty || 0,
+      }));
+  }
+
+  return groups;
+}
+
+function inferDisasterType(kibBencanaId) {
+  if (!kibBencanaId) return "unknown";
+  const upper = kibBencanaId.toUpperCase();
+  if (upper.includes("GM")) return "gunung_meletus";
+  if (upper.includes("BL") || upper.includes("LS")) return "banjir_longsor";
+  if (upper.includes("GB") || upper.includes("TS")) return "gempa_bumi_tsunami";
+  return "unknown";
+}
+
+const DAILY_NEED_PER_PERSON = {
+  "air_bersih": 20.0,
+  "air_minum": 4.0,
+  "beras": 0.4,
+  "mie_instan": 2.0,
+  "minyak_goreng": 0.03,
+  "protein": 0.05,
+  "mpasi": 0.2,
+  "hygiene_kit": 0.03,
+  "selimut": 0.02,
+  "matras": 0.02,
+  "masker": 1.0,
+  "obat_obatan": 0.05,
+  "pembalut": 0.08,
+  "popok_bayi": 0.3,
+};
+
+function normalizeItemName(name) {
+  return String(name).trim().toLowerCase().replace(/[-\s]/g, "_");
+}
+
+const DEFAULT_COMMODITY_MAP = new Map(
+  DEFAULT_COMMODITY_SPECS.map((spec) => [normalizeItemName(spec.key), spec])
+);
+
+function resolveDefaultCommodity(commodity) {
+  return DEFAULT_COMMODITY_MAP.get(normalizeItemName(commodity));
+}
+
+function recalcForecastQty(commodity, totalPengungsi, vulnerableCount, requestedQty = 0, criticalThreshold = 0) {
+  const itemKey = normalizeItemName(commodity);
+  const perPersonNeed = DAILY_NEED_PER_PERSON[itemKey] || 1.0;
+  const populationNeed = Math.max(totalPengungsi, 1) * perPersonNeed;
+  const vulnerableRatio = vulnerableCount / Math.max(totalPengungsi, 1);
+  const vulnerableMultiplier = 1.0 + Math.min(vulnerableRatio, 0.35);
+  const baseNeed = Math.max(populationNeed, requestedQty, criticalThreshold * 0.35);
+  return round2(Math.max(baseNeed * vulnerableMultiplier, 0));
+}
+
+export async function getRecommendationsFromDb({ limit = 25, posko_id = "", risk_level = "" } = {}) {
+  const predResult = await findDocuments({ type: "prediction" }, { limit: 500 });
+  const predictions = predResult.docs || [];
+
+  const assetResult = await findDocuments({ type: "asset" }, { limit: 500 });
+  const assets = assetResult.docs || [];
+
+  const poskoResult = await findDocuments({ type: "posko" }, { limit: 500 });
+  const poskoMap = {};
+  for (const p of poskoResult.docs || []) {
+    poskoMap[p._id] = p;
+  }
+
+  const grouped = {};
+  for (const pred of predictions) {
+    const key = `${pred.posko_id}::${pred.commodity}`;
+    if (!grouped[key] || pred.prediction_date > grouped[key].prediction_date) {
+      grouped[key] = pred;
+    }
+  }
+  if (posko_id) {
+    const existingCommodityKeys = new Set(
+      Object.values(grouped).map((pred) => normalizeItemName(pred.commodity))
+    );
+    const today = new Date().toISOString().slice(0, 10);
+    for (const spec of DEFAULT_COMMODITY_SPECS) {
+      const normalizedKey = normalizeItemName(spec.key);
+      if (existingCommodityKeys.has(normalizedKey)) continue;
+      grouped[`${posko_id}::${spec.key}`] = {
+        type: "prediction",
+        posko_id,
+        commodity: spec.key,
+        prediction_date: today,
+        unit: spec.unit,
+        attribution_method: "cold_start_fallback",
+        attribution_values: {
+          requested_qty: 0,
+          current_stock_qty: 0,
+          vulnerable_count: 0,
+        },
+      };
+      existingCommodityKeys.add(normalizedKey);
+    }
+  }
+
+  const rows = [];
+  for (const [key, pred] of Object.entries(grouped)) {
+    const posko = poskoMap[pred.posko_id] || {};
+    const asset = assets.find((a) => normalizeItemName(a.commodity) === normalizeItemName(pred.commodity)) || {};
+    const defaultSpec = resolveDefaultCommodity(pred.commodity);
+    const currentStock = asset.quantity_available || 0;
+    const vulnerabilityCount = (posko.count_balita || 0) + (posko.count_lansia || 0) + (posko.count_disabilitas || 0);
+    const totalPengungsi = posko.total_pengungsi || 1;
+    const requestedQty = pred.attribution_values?.requested_qty || 0;
+    const criticalThreshold = asset.min_threshold || 0;
+    const unit = pred.unit || asset.unit || defaultSpec?.unit || "unit";
+
+    const forecastQty = recalcForecastQty(pred.commodity, totalPengungsi, vulnerabilityCount, requestedQty, criticalThreshold);
+    const safetyStock = Math.max(forecastQty * 0.35, criticalThreshold) * (1 + Math.min(vulnerabilityCount / Math.max(totalPengungsi, 1), 0.35));
+    const recommendedQty = forecastQty + safetyStock;
+    const vulnerableRatio = vulnerabilityCount / Math.max(totalPengungsi, 1);
+    const risk = vulnerableRatio > 0.3 ? "kritis" : vulnerableRatio > 0.15 ? "waspada" : "aman";
+    const trust = 0.55;
+    const priority = Math.min(
+      (risk === "kritis" ? 35 : risk === "waspada" ? 20 : 5) +
+      Math.min(vulnerableRatio * 25, 20) +
+      Math.min(totalPengungsi / 100 * 3, 15) +
+      trust * 2 +
+      Math.min(forecastQty / 50, 10),
+      100
+    );
+
+    const chips = [];
+    if (vulnerabilityCount > 0) chips.push(`Ada ${vulnerabilityCount} pengungsi rentan yang menaikkan prioritas bantuan posko ini.`);
+    chips.push(`Kebutuhan harian ${pred.commodity} posko ini ${forecastQty.toFixed(1)} ${unit}, alokasi safety stock ${round2(safetyStock)} ${unit}.`);
+
+    if (posko_id && pred.posko_id !== posko_id) continue;
+    if (risk_level && risk !== risk_level) continue;
+
+    rows.push({
+      forecast_date: pred.prediction_date,
+      posko_id: pred.posko_id,
+      posko_name: posko.name || pred.posko_id,
+      item_name: pred.commodity,
+      unit,
+      forecast_qty: round2(forecastQty),
+      recommended_qty: round2(recommendedQty),
+      current_stock_qty: currentStock,
+      risk_level: risk,
+      priority_score: round2(priority),
+      trust_score: trust,
+      inference_mode: pred.attribution_method?.includes("cold_start") ? "cold_start" : "time_series",
+      rationale_chips: chips,
+      critical_stock_threshold: criticalThreshold,
+      item_category: asset.category || defaultSpec?.category || "lainnya",
+      total_pengungsi: totalPengungsi,
+      vulnerable_count: vulnerabilityCount,
+    });
+  }
+
+  rows.sort((a, b) => (b.priority_score || 0) - (a.priority_score || 0));
+  return { count: rows.length, rows: rows.slice(0, limit) };
+}
+
+function round2(v) {
+  return Math.round(v * 100) / 100;
 }

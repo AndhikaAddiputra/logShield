@@ -1,9 +1,10 @@
 import {
   createRequestDoc,
+  createStockMovementDoc,
   validateLogShieldDocument,
   ValidationError,
 } from "./document-schema.js";
-import { findDocuments, getDocument, putDocument, putExistingDocument } from "./couchdb.js";
+import { bulkDocuments, findDocuments, getDocument, putDocument, putExistingDocument } from "./couchdb.js";
 
 const REQUEST_STATUSES = ["mendesak", "menunggu", "diproses", "selesai"];
 const REQUEST_PRIORITIES = ["critical", "high", "normal", "low"];
@@ -108,17 +109,99 @@ export async function processRequest(id, actor, now = new Date()) {
   return saveRequest(next);
 }
 
-export async function completeRequest(id, _actor, now = new Date()) {
+export async function completeRequest(id, actor, now = new Date()) {
   const doc = await getRequestDocument(id);
   if (doc.status !== "diproses") {
     throw new RequestError("Only diproses requests can be completed", 409);
   }
+
+  const assetIds = doc.items
+    .filter((item) => item.commodity)
+    .map((item) => ({ commodity: item.commodity, quantity: item.quantity }));
+
+  const distinctCommodities = [...new Set(assetIds.map((a) => a.commodity))];
+  const assetResult = await findDocuments({ type: "asset" }, { limit: 500 });
+  const allAssets = assetResult.docs || [];
+
+  const bulk = [];
+  const movements = [];
+
+  for (const commodity of distinctCommodities) {
+    const totalQty = assetIds
+      .filter((a) => a.commodity === commodity)
+      .reduce((sum, a) => sum + a.quantity, 0);
+
+    const matchingAssets = allAssets
+      .filter((a) => a.commodity === commodity)
+      .sort((a, b) => (b.quantity_available || 0) - (a.quantity_available || 0));
+
+    if (matchingAssets.length === 0) {
+      throw new RequestError(
+        `No asset found for commodity "${commodity}". Cannot complete request.`,
+        400
+      );
+    }
+
+    let remaining = totalQty;
+    for (const asset of matchingAssets) {
+      if (remaining <= 0) break;
+      const available = asset.quantity_available || 0;
+      const deduct = Math.min(available, remaining);
+      if (deduct <= 0) continue;
+
+      remaining -= deduct;
+      asset.quantity_available = available - deduct;
+      asset.updated_at = now.toISOString();
+      bulk.push(asset);
+
+      movements.push(
+        createStockMovementDoc(
+          {
+            warehouse_id: asset.warehouse_id || "gudang_pusat",
+            commodity: asset.commodity,
+            category: asset.category || "lainnya",
+            quantity: deduct,
+            unit: asset.unit || "unit",
+            movement_type: "out",
+            source: "request_completion",
+            created_by: actor.user_id,
+          },
+          now
+        )
+      );
+    }
+
+    if (remaining > 0) {
+      throw new RequestError(
+        `Insufficient stock for "${commodity}": need ${totalQty}, only ${totalQty - remaining} available. Cannot complete request.`,
+        400
+      );
+    }
+  }
+
   const next = {
     ...doc,
     status: "selesai",
     updated_at: now.toISOString(),
   };
-  return saveRequest(next);
+
+  bulk.push(next);
+  bulk.push(...movements);
+
+  const result = await bulkDocuments(bulk);
+  const failed = result.find((row) => !row.ok);
+  if (failed) {
+    throw new ValidationError(
+      failed.reason || failed.error || "Failed to complete request"
+    );
+  }
+
+  return {
+    ok: true,
+    request: { ...next, _rev: result[bulk.indexOf(next)].rev },
+    asset_changes: distinctCommodities.length,
+    movement_count: movements.length,
+  };
 }
 
 export async function patchRequest(id, input, actor, now = new Date()) {

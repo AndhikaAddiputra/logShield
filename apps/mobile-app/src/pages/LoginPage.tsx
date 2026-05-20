@@ -1,26 +1,32 @@
 import React, { useState } from 'react';
-import { User, Lock, ArrowRight, AlertCircle } from 'lucide-react';
-import { login } from '../lib/api';
-import { useAuthStore } from '../store/authStore';
-import logoWhite from "../../assets/logo-white.svg";
+import { Shield, User, Lock, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
+import { API_BASE_URL } from '../lib/api';
 
 export default function LoginPage({ onNavigate }: { onNavigate: (page: string) => void }) {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const setAuth = useAuthStore((s) => s.setAuth);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
     try {
-      const res = await login(identifier, password);
-      setAuth(res);
-      onNavigate(res.user.posko_id || res.user.role === 'admin' ? 'dashboard' : 'inisialisasi-posko');
+      const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier, password }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.token) {
+        throw new Error(data.message || 'Login gagal. Periksa NIK/email dan kata sandi.');
+      }
+      localStorage.setItem('logshield_token', data.token);
+      localStorage.setItem('logshield_user', JSON.stringify(data.user));
+      onNavigate('inisialisasi-posko');
     } catch (err: any) {
-      setError(err.message || 'Login gagal. Periksa NIK/email dan kata sandi.');
+      setError(err.message || 'Terjadi kesalahan. Coba lagi.');
     } finally {
       setLoading(false);
     }
@@ -29,8 +35,8 @@ export default function LoginPage({ onNavigate }: { onNavigate: (page: string) =
   return (
     <div className="flex flex-col h-screen bg-blue-900 p-6 justify-center">
       <div className="flex flex-col items-center mb-12">
-        <div className="p-4 rounded-2xl mb-4 shadow-lg">
-          <img src={logoWhite} alt="LogShield" className="size-14 object-contain" />
+        <div className="bg-white p-4 rounded-2xl mb-4 shadow-lg">
+          <Shield className="w-12 h-12 text-blue-900" />
         </div>
         <h1 className="text-3xl font-black text-white tracking-widest uppercase">Log-Shield</h1>
         <p className="text-blue-200 text-sm mt-2 text-center">Sistem Manajemen Logistik Kemanusiaan</p>
@@ -40,8 +46,8 @@ export default function LoginPage({ onNavigate }: { onNavigate: (page: string) =
         <h2 className="text-xl font-bold text-gray-800 mb-6 text-center">Otorisasi Petugas</h2>
 
         {error && (
-          <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
-            <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
+          <div className="mb-4 flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 p-3">
+            <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
             <p className="text-xs font-medium text-red-700">{error}</p>
           </div>
         )}
@@ -85,15 +91,10 @@ export default function LoginPage({ onNavigate }: { onNavigate: (page: string) =
         <button
           type="submit"
           disabled={loading}
-          className="w-full mt-8 bg-blue-700 hover:bg-blue-800 text-white font-bold py-4 rounded-lg flex items-center justify-center gap-2 shadow-md transition active:scale-95 disabled:opacity-60"
+          className="w-full mt-8 bg-blue-700 hover:bg-blue-800 disabled:bg-blue-400 text-white font-bold py-4 rounded-lg flex items-center justify-center gap-2 shadow-md transition active:scale-95"
         >
-          {loading ? (
-            <span>MEMPROSES...</span>
-          ) : (
-            <>
-              MASUK <ArrowRight className="w-5 h-5" />
-            </>
-          )}
+          {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowRight className="w-5 h-5" />}
+          {loading ? 'MEMASUKI...' : 'MASUK'}
         </button>
       </form>
 

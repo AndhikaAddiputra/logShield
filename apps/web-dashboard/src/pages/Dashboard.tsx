@@ -26,11 +26,15 @@ import {
   fetchRegionalHeatmap,
   fetchVulnerableFulfillment,
   fetchDashboardSearch,
+  fetchPoskos,
+  triggerAiInference,
   type DashboardOverview,
   type StockWeightResponse,
   type RegionalHeatmapResponse,
   type VulnerableFulfillmentResponse,
   type SearchResult,
+  type PoskoDoc,
+  type AiInferenceResult,
 } from "../lib/api";
 
 export function DashboardPage() {
@@ -46,6 +50,31 @@ export function DashboardPage() {
   const [weightCategory, setWeightCategory] = useState("all");
   const [weightCommodity, setWeightCommodity] = useState("all");
   const [heatmapLimit] = useState(7);
+
+  const [poskos, setPoskos] = useState<PoskoDoc[]>([]);
+  const [selectedPoskoId, setSelectedPoskoId] = useState("");
+  const [inferring, setInferring] = useState(false);
+  const [inferResults, setInferResults] = useState<AiInferenceResult[] | null>(null);
+  const [inferError, setInferError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchPoskos().then((res) => setPoskos(res.rows.map((r: any) => r.doc).filter(Boolean))).catch(() => {});
+  }, []);
+
+  const handleRunInference = async () => {
+    if (!selectedPoskoId) return;
+    setInferring(true);
+    setInferError(null);
+    setInferResults(null);
+    try {
+      const res = await triggerAiInference(selectedPoskoId);
+      setInferResults(res.results || []);
+    } catch (err: any) {
+      setInferError(err.message || "Gagal menjalankan analisis AI");
+    } finally {
+      setInferring(false);
+    }
+  };
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -334,6 +363,110 @@ export function DashboardPage() {
             )}
           </div>
         </div>
+
+        {inferError && (
+          <div className="rounded-ls-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            {inferError}
+          </div>
+        )}
+
+        {inferResults && inferResults.length > 0 && (
+          <div className="rounded-ls-lg border border-ls-border bg-white p-5 shadow-ls">
+            <h2 className="mb-4 text-base font-semibold text-ls-navy">
+              Hasil Analisis AI
+            </h2>
+            <div className="space-y-3">
+              {inferResults.map((r, i) => {
+                const mode = String(r.inference_mode || "");
+                const risk = String(r.risk_level || "");
+                const trust = Number(r.trust_score || 0);
+                const priority = Number(r.priority_score || 0);
+                const shortage = Number(r.shortage_qty || 0);
+                const recommended = Number(r.recommended_qty || 0);
+                const chips = Array.isArray(r.rationale_chips) ? r.rationale_chips : [];
+                return (
+                  <div key={i} className={`rounded border p-3 text-xs ${
+                    risk === "kritis" ? "border-red-200 bg-red-50" : "border-ls-border bg-ls-bg"
+                  }`}>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-semibold text-ls-navy">
+                        {String(r.item_name || "-")}
+                      </span>
+                      <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                        risk === "kritis" ? "bg-red-100 text-red-700"
+                        : risk === "waspada" ? "bg-yellow-100 text-yellow-700"
+                        : "bg-green-100 text-green-700"
+                      }`}>
+                        {risk}
+                      </span>
+                      {mode === "cold_start" && (
+                        <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-700">
+                          Estimasi Awal
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-ls-muted">
+                      {recommended > 0 && (
+                        <span>Rekomendasi: <strong>{recommended.toFixed(0)}</strong> {String(r.unit || "")}</span>
+                      )}
+                      {shortage > 0 && (
+                        <span className="text-red-500">Kekurangan: <strong>{shortage.toFixed(0)}</strong></span>
+                      )}
+                      {trust > 0 && (
+                        <span>Trust: <strong>{trust.toFixed(2)}</strong></span>
+                      )}
+                      {priority > 0 && (
+                        <span>Prioritas: <strong>{priority.toFixed(1)}</strong></span>
+                      )}
+                      {Number(r.coverage_days || 0) > 0 && (
+                        <span>Coverage: <strong>{Number(r.coverage_days).toFixed(1)}</strong> hari</span>
+                      )}
+                    </div>
+                    {chips.length > 0 && (
+                      <div className="mt-1.5 flex flex-wrap gap-1">
+                        {chips.slice(0, 3).map((chip: string, ci: number) => (
+                          <span key={ci} className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-600">
+                            {chip}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <div className="rounded-ls-lg border border-ls-border bg-white p-5 shadow-ls">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="text-base font-semibold text-ls-navy">
+              Analisis AI untuk Posko
+            </h2>
+            <div className="flex items-center gap-2">
+              <select
+                value={selectedPoskoId}
+                onChange={(e) => { setSelectedPoskoId(e.target.value); setInferResults(null); setInferError(null); }}
+                className="h-8 rounded border border-ls-border bg-white px-2 text-xs text-ls-navy"
+              >
+                <option value="">Pilih posko...</option>
+                {poskos.map((p) => (
+                  <option key={p._id} value={p._id}>{p.name}</option>
+                ))}
+              </select>
+              <button
+                onClick={handleRunInference}
+                disabled={!selectedPoskoId || inferring}
+                className="flex items-center gap-1.5 rounded bg-ls-navy px-3 py-1.5 text-xs font-medium text-white transition hover:bg-ls-navy/80 disabled:opacity-50"
+              >
+                {inferring ? "Menganalisis..." : "Jalankan Analisis"}
+              </button>
+            </div>
+          </div>
+          {!inferResults && !inferError && (
+            <p className="text-xs text-ls-muted">Pilih posko dan klik "Jalankan Analisis" untuk memulai.</p>
+          )}
+        </div>
       </div>
 
       <p className="border-t border-ls-border px-6 py-3 text-center text-xs text-ls-muted">
@@ -342,4 +475,3 @@ export function DashboardPage() {
     </>
   );
 }
-

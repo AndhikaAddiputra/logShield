@@ -28,10 +28,12 @@ import {
   type StockSummary,
   type StockTrendDay,
   addStock,
+  deleteAsset,
   fetchStockCategories,
   fetchStockReadings,
   fetchStockSummary,
   fetchStockTrend,
+  updateAsset,
 } from "../lib/api";
 
 const accentColors: Record<string, string> = {
@@ -58,27 +60,51 @@ function StockRow({
   unit,
   progress,
   isCritical,
+  category,
+  threshold,
+  onEdit,
+  onDelete,
 }: {
   name: string;
   stock: number;
   unit: string;
   progress: number;
   isCritical: boolean;
+  category: string;
+  threshold: number;
+  onEdit: (commodity: string, category: string, unit: string, threshold: number) => void;
+  onDelete: (commodity: string) => void;
 }) {
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between text-sm">
-        <span className="font-medium text-ls-navy">{name}</span>
-        <span className="text-xs font-semibold text-ls-navy">
-          {formatNumber(stock)}
-          <span className="ml-1 text-[10px] uppercase text-ls-muted">{unit}</span>
-        </span>
+    <div className="flex items-center justify-between gap-2">
+      <div className="flex-1 space-y-2">
+        <div className="flex items-center justify-between text-sm">
+          <span className="font-medium text-ls-navy">{name}</span>
+          <span className="text-xs font-semibold text-ls-navy">
+            {formatNumber(stock)}
+            <span className="ml-1 text-[10px] uppercase text-ls-muted">{unit}</span>
+          </span>
+        </div>
+        <div className="h-1.5 rounded-full bg-slate-100">
+          <div
+            className={`h-1.5 rounded-full transition-all ${isCritical ? "bg-red-500" : "bg-[#1f3b7d]"}`}
+            style={{ width: `${Math.min(progress, 100)}%` }}
+          />
+        </div>
       </div>
-      <div className="h-1.5 rounded-full bg-slate-100">
-        <div
-          className={`h-1.5 rounded-full transition-all ${isCritical ? "bg-red-500" : "bg-[#1f3b7d]"}`}
-          style={{ width: `${Math.min(progress, 100)}%` }}
-        />
+      <div className="flex items-center gap-1">
+        <button
+          onClick={() => onEdit(name, category, unit, threshold)}
+          className="text-[10px] font-semibold text-blue-700 hover:text-blue-900 px-2 py-1 rounded hover:bg-blue-50"
+        >
+          Edit
+        </button>
+        <button
+          onClick={() => onDelete(name)}
+          className="text-[10px] font-semibold text-red-600 hover:text-red-800 px-2 py-1 rounded hover:bg-red-50"
+        >
+          Hapus
+        </button>
       </div>
     </div>
   );
@@ -93,6 +119,8 @@ function CategoryCard({
   category,
   items,
   onAddStock,
+  onEdit,
+  onDelete,
 }: {
   title: string;
   subtitle: string;
@@ -102,6 +130,8 @@ function CategoryCard({
   category: string;
   items: { commodity: string; quantity_available: number; unit: string; min_threshold: number; is_critical: boolean; progress: number }[];
   onAddStock: (category: string) => void;
+  onEdit: (commodity: string, category: string, unit: string, threshold: number) => void;
+  onDelete: (commodity: string) => void;
 }) {
   const criticalItems = items.filter((i) => i.is_critical);
 
@@ -134,6 +164,10 @@ function CategoryCard({
               unit={item.unit}
               progress={item.progress}
               isCritical={item.is_critical}
+              category={category}
+              threshold={item.min_threshold}
+              onEdit={onEdit}
+              onDelete={onDelete}
             />
           ))}
           {items.length === 0 && (
@@ -173,6 +207,18 @@ export function AssetsPage() {
   const [addUnit, setAddUnit] = useState("kg");
   const [addThreshold, setAddThreshold] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+
+  const [showEdit, setShowEdit] = useState(false);
+  const [editId, setEditId] = useState("");
+  const [editCommodity, setEditCommodity] = useState("");
+  const [editCategory, setEditCategory] = useState("");
+  const [editThreshold, setEditThreshold] = useState(0);
+  const [editUnit, setEditUnit] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
+  const [deleteId, setDeleteId] = useState("");
+  const [deleteName, setDeleteName] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   const [iotFilter, setIotFilter] = useState("all");
 
@@ -251,6 +297,47 @@ export function AssetsPage() {
     setShowAdd(true);
   };
 
+  const openEdit = (commodity: string, category: string, unit: string, threshold: number) => {
+    setEditId(`asset::WH-JKT-001::${commodity}`);
+    setEditCommodity(commodity);
+    setEditCategory(category);
+    setEditUnit(unit);
+    setEditThreshold(threshold);
+    setShowEdit(true);
+  };
+
+  const handleEditAsset = async () => {
+    setSavingEdit(true);
+    try {
+      await updateAsset(editId, { category: editCategory, unit: editUnit, min_threshold: editThreshold });
+      setShowEdit(false);
+      loadData();
+    } catch (err: any) {
+      alert(err.message || "Gagal mengupdate aset");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const openDelete = (commodity: string) => {
+    setDeleteId(`asset::WH-JKT-001::${commodity}`);
+    setDeleteName(commodity);
+    setShowDelete(true);
+  };
+
+  const handleDeleteAsset = async () => {
+    setDeleting(true);
+    try {
+      await deleteAsset(deleteId);
+      setShowDelete(false);
+      loadData();
+    } catch (err: any) {
+      alert(err.message || "Gagal menghapus aset");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <>
       <PageHeader
@@ -299,6 +386,8 @@ export function AssetsPage() {
                     accentBg={accentClasses[cat.category] || "bg-slate-500"}
                     items={cat.items}
                     onAddStock={openAdd}
+                    onEdit={openEdit}
+                    onDelete={openDelete}
                   />
                 ))}
               </div>
@@ -454,8 +543,9 @@ export function AssetsPage() {
                   <Input type="number" value={addQuantity || ""} onChange={(e) => setAddQuantity(Number(e.target.value))} />
                 </Field>
                 <Field label="Satuan">
-                  <SelectField value={addUnit} onChange={(e) => setAddUnit(e.target.value)}>
+                <SelectField value={addUnit} onChange={(e) => setAddUnit(e.target.value)}>
                     <option value="kg">kg</option>
+                    <option value="liter">liter</option>
                     <option value="pcs">pcs</option>
                     <option value="karton">karton</option>
                     <option value="unit">unit</option>
@@ -470,6 +560,60 @@ export function AssetsPage() {
               <Button type="button" variant="outline" onClick={() => setShowAdd(false)} disabled={submitting}>Batal</Button>
               <Button type="button" variant="primary" onClick={handleAddStock} disabled={submitting || !addCommodity || addQuantity <= 0}>
                 {submitting ? "Menyimpan..." : "Tambah Stok"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showEdit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-ls-lg border border-ls-border bg-white p-6 shadow-2xl space-y-5">
+            <h2 className="text-lg font-bold text-ls-navy">Edit Aset</h2>
+            <p className="text-xs text-ls-muted">{editCommodity} ({editId})</p>
+            <div className="space-y-4">
+              <Field label="Kategori">
+                <SelectField value={editCategory} onChange={(e) => setEditCategory(e.target.value)}>
+                  <option value="pangan">Pangan</option>
+                  <option value="sandang">Sandang</option>
+                  <option value="papan">Papan</option>
+                  <option value="lainnya">Lainnya</option>
+                </SelectField>
+              </Field>
+              <Field label="Satuan">
+                <SelectField value={editUnit} onChange={(e) => setEditUnit(e.target.value)}>
+                  <option value="kg">kg</option>
+                  <option value="pcs">pcs</option>
+                  <option value="karton">karton</option>
+                  <option value="unit">unit</option>
+                  <option value="liter">liter</option>
+                </SelectField>
+              </Field>
+              <Field label={`Batas Minimum (${editUnit})`}>
+                <Input type="number" value={editThreshold || ""} onChange={(e) => setEditThreshold(Number(e.target.value))} />
+              </Field>
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <Button type="button" variant="outline" onClick={() => setShowEdit(false)} disabled={savingEdit}>Batal</Button>
+              <Button type="button" variant="primary" onClick={handleEditAsset} disabled={savingEdit}>
+                {savingEdit ? "Menyimpan..." : "Simpan"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-ls-lg border border-ls-border bg-white p-6 shadow-2xl space-y-4">
+            <h2 className="text-lg font-bold text-ls-navy">Hapus Aset</h2>
+            <p className="text-sm text-ls-muted">
+              Yakin ingin menghapus <strong>{deleteName}</strong>? Tindakan ini tidak bisa dibatalkan.
+            </p>
+            <div className="flex justify-end gap-3 pt-2">
+              <Button type="button" variant="outline" onClick={() => setShowDelete(false)} disabled={deleting}>Batal</Button>
+              <Button type="button" variant="destructive" onClick={handleDeleteAsset} disabled={deleting}>
+                {deleting ? "Menghapus..." : "Ya, Hapus"}
               </Button>
             </div>
           </div>

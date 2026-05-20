@@ -221,6 +221,37 @@ function latestTimestamp(values) {
     .sort((a, b) => Date.parse(b) - Date.parse(a))[0] || null;
 }
 
+export async function updateAsset(id, input = {}, now = new Date()) {
+  const doc = await getDocument(id);
+  if (doc.type !== "asset") {
+    throw new ValidationError("Document is not an asset");
+  }
+
+  const ALLOWED_FIELDS = ["category", "commodity", "unit", "min_threshold"];
+  for (const [key, value] of Object.entries(input)) {
+    if (value === undefined || value === null) continue;
+    if (!ALLOWED_FIELDS.includes(key)) continue;
+    doc[key] = key === "min_threshold" ? Number(value) : String(value);
+  }
+
+  doc.updated_at = now.toISOString();
+  validateLogShieldDocument(doc);
+  const result = await putExistingDocument(doc);
+  return {
+    ok: true,
+    asset: { ...doc, _rev: result.rev },
+  };
+}
+
+export async function deleteAsset(id) {
+  const doc = await getDocument(id);
+  if (doc.type !== "asset") {
+    throw new ValidationError("Document is not an asset");
+  }
+  await putExistingDocument({ ...doc, _deleted: true });
+  return { ok: true };
+}
+
 function isoDate(date) {
   return date.toISOString().slice(0, 10);
 }

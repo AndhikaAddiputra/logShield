@@ -16,6 +16,8 @@ import {
 } from "./auth.js";
 import {
   aiRequest,
+  getRecommendationsFromDb,
+  inferPoskoCommodities,
   normalizeAiAnomalyListResponse,
   normalizeAiDashboardResponse,
   normalizeAiListResponse,
@@ -35,7 +37,7 @@ import {
 } from "./dashboard.js";
 import { startDistributionSyncMarker } from "./distribution-sync.js";
 import { ingestStockReading, startMqttIngestion } from "./mqtt.js";
-import { createPosko, importPoskosFromCsv, listPoskos } from "./poskos.js";
+import { createPosko, importPoskosFromCsv, listPoskos, updatePosko } from "./poskos.js";
 import {
   completeRequest,
   createRequest,
@@ -51,7 +53,7 @@ import {
   updateProfile,
   uploadAvatar,
 } from "./settings.js";
-import { addStock, getStockCategories, getStockSummary, getStockTrend } from "./stocks.js";
+import { addStock, deleteAsset, getStockCategories, getStockSummary, getStockTrend, updateAsset } from "./stocks.js";
 import {
   createAuditLogDoc,
   validateLogShieldDocument,
@@ -86,136 +88,6 @@ app.get("/api/couchdb/health", async (_req, res, next) => {
   }
 });
 
-app.post("/api/couchdb/bootstrap", async (_req, res, next) => {
-  try {
-    const result = await bootstrapDatabase();
-    const devAdmin = await ensureDevAdmin();
-    result.dev_admin = devAdmin;
-    res.status(result.created ? 201 : 200).json(result);
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.get("/api/ai/summary", async (_req, res, next) => {
-  try {
-    res.json(await aiRequest("/summary"));
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.get("/api/ai/models/current", async (_req, res, next) => {
-  try {
-    res.json(await aiRequest("/models/current"));
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.post("/api/ai/infer/need", authenticateRequest, async (req, res, next) => {
-  try {
-    const result = await aiRequest("/infer/need", {
-      method: "POST",
-      body: req.body || {},
-    });
-    res.json(normalizeAiNeedResponse(result));
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.post("/api/ai/infer/recommendation", authenticateRequest, async (req, res, next) => {
-  try {
-    const result = await aiRequest("/infer/recommendation", {
-      method: "POST",
-      body: req.body || {},
-    });
-    res.json(normalizeAiRecommendationResponse(result));
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.get("/api/ai/dashboard", async (req, res, next) => {
-  try {
-    const limit = clampLimit(req.query.limit, 10, 100);
-    res.json(normalizeAiDashboardResponse(await aiRequest(`/summary/dashboard?limit=${limit}`)));
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.get("/api/ai/forecasts", async (req, res, next) => {
-  try {
-    res.json(await aiRequest(`/forecasts${queryString(req.query, { defaultLimit: 100, maxLimit: 1000 })}`));
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.get("/api/ai/recommendations", async (req, res, next) => {
-  try {
-    const result = await aiRequest(`/recommendations${queryString(req.query, { defaultLimit: 100, maxLimit: 1000 })}`);
-    res.json(normalizeAiListResponse(result));
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.get("/api/ai/recommendations/top-critical", async (req, res, next) => {
-  try {
-    const result = await aiRequest(`/recommendations/top-critical${queryString(req.query, { defaultLimit: 25, maxLimit: 100 })}`);
-    res.json(normalizeAiListResponse(result));
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.get("/api/ai/anomalies", async (req, res, next) => {
-  try {
-    const result = await aiRequest(`/anomalies${queryString(req.query, { defaultLimit: 100, maxLimit: 1000 })}`);
-    res.json(normalizeAiAnomalyListResponse(result));
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.get("/api/ai/anomalies/recent", async (req, res, next) => {
-  try {
-    const result = await aiRequest(`/anomalies/recent${queryString(req.query, { defaultLimit: 25, maxLimit: 100 })}`);
-    res.json(normalizeAiAnomalyListResponse(result));
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.post("/api/ai/refresh", authenticateRequest, requireAdmin, async (_req, res, next) => {
-  try {
-    res.json(await aiRequest("/refresh", { method: "POST" }));
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.post("/api/ai/sync", authenticateRequest, requireAdmin, async (req, res, next) => {
-  try {
-    const limit = clampLimit(req.body?.limit, 50, 100);
-    res.status(201).json(await syncAiDashboard({ limit }));
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.post("/api/auth/signup", async (req, res, next) => {
-  try {
-    const result = await submitSignup(req.body || {});
-    res.status(202).json(result);
-  } catch (error) {
-    next(error);
-  }
-});
-
 app.post("/api/auth/login", async (req, res, next) => {
   try {
     res.json(await loginUser(req.body || {}));
@@ -224,18 +96,22 @@ app.post("/api/auth/login", async (req, res, next) => {
   }
 });
 
-app.get(
-  "/api/personnel",
-  authenticateRequest,
-  requirePersonnelViewer,
-  async (req, res, next) => {
-    try {
-      res.json(await listPersonnelForActor(req.auth));
-    } catch (error) {
-      next(error);
-    }
+app.post("/api/auth/signup", async (req, res, next) => {
+  try {
+    const result = await submitSignup(req.body || {});
+    res.status(201).json(result);
+  } catch (error) {
+    next(error);
   }
-);
+});
+
+app.patch("/api/poskos/:id", authenticateRequest, async (req, res, next) => {
+  try {
+    res.json(await updatePosko(req.params.id, req.body));
+  } catch (error) {
+    next(error);
+  }
+});
 
 app.post(
   "/api/personnel/requests/:id/approve",
@@ -373,6 +249,22 @@ app.post("/api/stocks", authenticateRequest, async (req, res, next) => {
   try {
     const result = await addStock(req.body || {}, req.auth);
     res.status(201).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.patch("/api/stocks/:id", authenticateRequest, async (req, res, next) => {
+  try {
+    res.json(await updateAsset(req.params.id, req.body || {}));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.delete("/api/stocks/:id", authenticateRequest, async (req, res, next) => {
+  try {
+    res.json(await deleteAsset(req.params.id));
   } catch (error) {
     next(error);
   }
@@ -634,6 +526,123 @@ app.get("/api/dashboard/search", authenticateRequest, async (req, res, next) => 
 app.get("/api/dashboard/notifications", authenticateRequest, async (_req, res, next) => {
   try {
     res.json(await getNotifications());
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/ai/summary", async (_req, res, next) => {
+  try {
+    res.json(await aiRequest("/summary"));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/ai/models/current", async (_req, res, next) => {
+  try {
+    res.json(await aiRequest("/models/current"));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/ai/infer/need", authenticateRequest, async (req, res, next) => {
+  try {
+    const result = await aiRequest("/infer/need", { method: "POST", body: req.body });
+    res.json(normalizeAiNeedResponse(result));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/ai/infer/recommendation", authenticateRequest, async (req, res, next) => {
+  try {
+    const result = await aiRequest("/infer/recommendation", { method: "POST", body: req.body });
+    res.json(normalizeAiRecommendationResponse(result));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/ai/infer/posko/:poskoId", authenticateRequest, async (req, res, next) => {
+  try {
+    const result = await inferPoskoCommodities(req.params.poskoId);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/ai/dashboard", async (req, res, next) => {
+  try {
+    const limit = clampLimit(req.query.limit, 10, 100);
+    res.json(normalizeAiDashboardResponse(await aiRequest(`/summary/dashboard?limit=${limit}`)));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/ai/forecasts", async (req, res, next) => {
+  try {
+    const result = await aiRequest(`/forecasts${queryString(req.query, { defaultLimit: 100, maxLimit: 1000 })}`);
+    res.json(normalizeAiListResponse(result));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/ai/recommendations", async (req, res, next) => {
+  try {
+    const result = await aiRequest(`/recommendations${queryString(req.query, { defaultLimit: 100, maxLimit: 1000 })}`);
+    res.json(normalizeAiListResponse(result));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/ai/recommendations/top-critical", async (req, res, next) => {
+  try {
+    const result = await getRecommendationsFromDb({
+      limit: clampLimit(req.query.limit, 25, 100),
+      posko_id: req.query.posko_id || "",
+      risk_level: req.query.risk_level || "",
+    });
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/ai/anomalies", async (req, res, next) => {
+  try {
+    const result = await aiRequest(`/anomalies${queryString(req.query, { defaultLimit: 100, maxLimit: 1000 })}`);
+    res.json(normalizeAiAnomalyListResponse(result));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/ai/anomalies/recent", async (req, res, next) => {
+  try {
+    const result = await aiRequest(`/anomalies/recent${queryString(req.query, { defaultLimit: 25, maxLimit: 100 })}`);
+    res.json(normalizeAiAnomalyListResponse(result));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/ai/refresh", authenticateRequest, requireAdmin, async (_req, res, next) => {
+  try {
+    res.json(await aiRequest("/refresh", { method: "POST" }));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/ai/sync", authenticateRequest, requireAdmin, async (req, res, next) => {
+  try {
+    res.json(await syncAiDashboard({ limit: req.query.limit }));
   } catch (error) {
     next(error);
   }

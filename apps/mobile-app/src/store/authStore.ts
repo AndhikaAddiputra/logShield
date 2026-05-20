@@ -1,11 +1,37 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { UserProfile, LoginResponse } from "../lib/api";
+
+interface UserProfile {
+  _id: string;
+  type: "user";
+  email: string;
+  name: string;
+  kib_bencana_id: string;
+  role: string;
+  posko_id: string | null;
+  phone: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface CouchDBCredentials {
+  url: string;
+  username: string;
+  password: string;
+  database: string;
+}
+
+interface LoginResponse {
+  ok: boolean;
+  token: string;
+  user: UserProfile;
+  couchdb: CouchDBCredentials;
+}
 
 export interface AuthState {
   token: string | null;
   user: UserProfile | null;
-  couchdb: LoginResponse["couchdb"] | null;
+  couchdb: CouchDBCredentials | null;
   setAuth: (res: LoginResponse) => void;
   setUserPoskoId: (poskoId: string) => void;
   clearAuth: () => void;
