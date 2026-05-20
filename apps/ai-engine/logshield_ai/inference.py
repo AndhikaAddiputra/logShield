@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import subprocess
 import sys
@@ -23,21 +24,26 @@ MODEL_BACKEND = "tinytimemixer"
 CONTEXT_LENGTH = 30
 HORIZON = 7
 
-STANDARD_DAILY_NEED_PER_PERSON = {
-    "air_bersih": 20.0,
-    "air_minum": 4.0,
-    "beras": 0.4,
-    "mie_instan": 2.0,
-    "minyak_goreng": 0.03,
-    "protein": 0.05,
-    "mpasi": 0.2,
-    "hygiene_kit": 0.03,
-    "selimut": 0.02,
-    "matras": 0.02,
-    "masker": 1.0,
-    "obat_obatan": 0.05,
-    "pembalut": 0.08,
-    "popok_bayi": 0.3,
+COMMODITY_SPECS = {
+    "air_bersih":    {"qty": 20.0,  "unit": "liter", "period_days": 1,   "class": "konsumsi_harian",         "category": "pangan"},
+    "air_minum":     {"qty": 4.0,   "unit": "liter", "period_days": 1,   "class": "konsumsi_harian",         "category": "pangan"},
+    "beras":         {"qty": 0.4,   "unit": "kg",    "period_days": 1,   "class": "konsumsi_harian",         "category": "pangan"},
+    "mie_instan":    {"qty": 2.0,   "unit": "pcs",   "period_days": 1,   "class": "konsumsi_harian",         "category": "pangan"},
+    "minyak_goreng": {"qty": 0.03,  "unit": "liter", "period_days": 1,   "class": "konsumsi_harian",         "category": "pangan"},
+    "protein":       {"qty": 0.05,  "unit": "kg",    "period_days": 1,   "class": "konsumsi_harian",         "category": "pangan"},
+    "mpasi":         {"qty": 0.2,   "unit": "kg",    "period_days": 1,   "class": "konsumsi_harian",         "category": "pangan"},
+    "obat_obatan":   {"qty": 0.05,  "unit": "pcs",   "period_days": 1,   "class": "konsumsi_harian",         "category": "sandang"},
+    "masker":        {"qty": 1.0,   "unit": "pcs",   "period_days": 1,   "class": "konsumsi_harian",         "category": "sandang"},
+
+    "pembalut":      {"qty": 8.0,   "unit": "pcs",   "period_days": 28,  "class": "konsumsi_berkala",        "category": "sandang"},
+    "popok_bayi":    {"qty": 30.0,  "unit": "pcs",   "period_days": 14,  "class": "konsumsi_berkala",        "category": "sandang"},
+    "hygiene_kit":   {"qty": 1.0,   "unit": "kit",   "period_days": 30,  "class": "konsumsi_berkala",        "category": "sandang"},
+    "baterai":       {"qty": 4.0,   "unit": "pcs",   "period_days": 30,  "class": "konsumsi_berkala",        "category": "lainnya"},
+
+    "selimut":       {"qty": 1.0,   "unit": "pcs",   "period_days": 365, "class": "perlengkapan_tahan_lama", "category": "sandang"},
+    "matras":        {"qty": 1.0,   "unit": "pcs",   "period_days": 365, "class": "perlengkapan_tahan_lama", "category": "sandang"},
+
+    "radio_ht":      {"qty": 2.0,   "unit": "unit",  "period_days": 730, "class": "elektronik_logistik",     "category": "lainnya"},
 }
 
 DEFAULT_DAILY_NEED_PER_PERSON = 1.0
@@ -165,13 +171,27 @@ def normalize_item_name(item_name: str) -> str:
 
 def cold_start_daily_need(request: InferenceRequest) -> float:
     item_key = normalize_item_name(request.item_name)
-    per_person_need = STANDARD_DAILY_NEED_PER_PERSON.get(item_key, DEFAULT_DAILY_NEED_PER_PERSON)
-    population_need = max(request.total_pengungsi, 1) * per_person_need
-    latest_requested = request.history[-1].requested_qty if request.history else 0.0
-    latest_need = request.history[-1].target_need_qty if request.history else 0.0
+    spec = COMMODITY_SPECS.get(item_key)
     vulnerable_ratio = request.vulnerable_count / max(request.total_pengungsi, 1)
     vulnerable_multiplier = 1.0 + min(vulnerable_ratio, 0.35)
-    base_need = max(population_need, request.requested_qty, latest_requested, latest_need, request.critical_stock_threshold * 0.35)
+
+    if spec is None:
+        base_need = max(request.total_pengungsi, 1) * DEFAULT_DAILY_NEED_PER_PERSON
+    elif spec["class"] == "konsumsi_harian":
+        base_need = max(request.total_pengungsi, 1) * spec["qty"]
+    elif spec["class"] == "konsumsi_berkala":
+        base_need = (max(request.total_pengungsi, 1) * spec["qty"]) / spec["period_days"]
+    elif spec["class"] == "perlengkapan_tahan_lama":
+        total_needed = max(int(math.ceil(max(request.total_pengungsi, 1) * spec["qty"])), 1)
+        base_need = total_needed / 7
+    elif spec["class"] == "elektronik_logistik":
+        base_need = spec["qty"]
+    else:
+        base_need = max(request.total_pengungsi, 1) * spec.get("qty", 1.0)
+
+    latest_requested = request.history[-1].requested_qty if request.history else 0.0
+    latest_need = request.history[-1].target_need_qty if request.history else 0.0
+    base_need = max(base_need, request.requested_qty, latest_requested, latest_need, request.critical_stock_threshold * 0.35)
     return round(max(base_need * vulnerable_multiplier, 0.0), 2)
 
 

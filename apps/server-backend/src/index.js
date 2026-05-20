@@ -13,6 +13,7 @@ import {
   requirePersonnelViewer,
   requireRequestProcessor,
   submitSignup,
+  updatePersonnel,
 } from "./auth.js";
 import {
   aiRequest,
@@ -133,6 +134,32 @@ app.post(
   async (req, res, next) => {
     try {
       res.json(await rejectSignupRequest(req.params.id, req.body || {}, req.auth));
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+app.get(
+  "/api/personnel",
+  authenticateRequest,
+  requirePersonnelViewer,
+  async (req, res, next) => {
+    try {
+      res.json(await listPersonnelForActor(req.auth));
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+app.patch(
+  "/api/personnel/:id",
+  authenticateRequest,
+  requireAdmin,
+  async (req, res, next) => {
+    try {
+      res.json(await updatePersonnel(req.params.id, req.body || {}, req.auth));
     } catch (error) {
       next(error);
     }

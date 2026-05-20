@@ -149,6 +149,19 @@ export function fetchPersonnel() {
   return request<PersonnelResponse>("/api/personnel");
 }
 
+export interface UpdatePersonnelPayload {
+  role?: string;
+  posko_id?: string | null;
+  kib_bencana_id?: string;
+}
+
+export function updatePersonnel(id: string, payload: UpdatePersonnelPayload) {
+  return request<{ ok: boolean }>(`/api/personnel/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
 export interface ApprovePayload {
   role: string;
   kib_bencana_id: string;
@@ -661,6 +674,7 @@ export interface AiInferenceResult {
   current_stock_qty: number;
   critical_stock_threshold: number;
   history_days: number;
+  forecast_qty: number;
   risk_level: string | null;
   recommended_qty: number;
   shortage_qty: number;
@@ -668,6 +682,7 @@ export interface AiInferenceResult {
   priority_score: number;
   trust_score: number;
   inference_mode: string;
+  commodity_class: string | null;
   rationale_chips: string[];
   daily_recommendations: Record<string, unknown>[];
   error: string | null;

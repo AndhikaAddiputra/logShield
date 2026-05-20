@@ -495,6 +495,28 @@ function validateSignupRequestForWrite(doc) {
   }
 }
 
+export async function updatePersonnel(id, input, actor) {
+  const viewer = await getDocument(actor.user_id);
+  if (viewer.role !== "admin") throw new AuthError("Admin role required", 403);
+
+  const user = await getDocument(id);
+  if (user.type !== "user") throw new AuthError("Document is not a user", 404);
+
+  const ALLOWED = ["posko_id", "role", "kib_bencana_id"];
+  for (const key of ALLOWED) {
+    if (input[key] !== undefined && input[key] !== null) {
+      if (key === "role" && !["admin", "koordinator", "lapangan"].includes(input[key])) {
+        throw new AuthError(`Invalid role: ${input[key]}`, 400);
+      }
+      user[key] = String(input[key]);
+    }
+  }
+
+  user.updated_at = new Date().toISOString();
+  await putExistingDocument(user);
+  return { ok: true, user: sanitizeUser(user) };
+}
+
 export class AuthError extends Error {
   constructor(message, statusCode = 401) {
     super(message);

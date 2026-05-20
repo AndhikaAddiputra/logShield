@@ -280,22 +280,27 @@ export async function inferNeed(payload) {
   return normalizeAiNeedResponse(raw);
 }
 
-const DEFAULT_COMMODITY_SPECS = [
-  { key: "air_bersih", category: "pangan", unit: "liter" },
-  { key: "air_minum", category: "pangan", unit: "liter" },
-  { key: "beras", category: "pangan", unit: "kg" },
-  { key: "mie_instan", category: "pangan", unit: "pcs" },
-  { key: "minyak_goreng", category: "pangan", unit: "liter" },
-  { key: "protein", category: "pangan", unit: "kg" },
-  { key: "mpasi", category: "pangan", unit: "kg" },
-  { key: "hygiene_kit", category: "sandang", unit: "kit" },
-  { key: "selimut", category: "sandang", unit: "pcs" },
-  { key: "matras", category: "sandang", unit: "pcs" },
-  { key: "masker", category: "sandang", unit: "pcs" },
-  { key: "obat_obatan", category: "sandang", unit: "pcs" },
-  { key: "pembalut", category: "sandang", unit: "pcs" },
-  { key: "popok_bayi", category: "sandang", unit: "pcs" },
-];
+const COMMODITY_SPECS = {
+  "air_bersih":    { qty: 20.0,  unit: "liter", period_days: 1,   class: "konsumsi_harian",         category: "pangan" },
+  "air_minum":     { qty: 4.0,   unit: "liter", period_days: 1,   class: "konsumsi_harian",         category: "pangan" },
+  "beras":         { qty: 0.4,   unit: "kg",    period_days: 1,   class: "konsumsi_harian",         category: "pangan" },
+  "mie_instan":    { qty: 2.0,   unit: "pcs",   period_days: 1,   class: "konsumsi_harian",         category: "pangan" },
+  "minyak_goreng": { qty: 0.03,  unit: "liter", period_days: 1,   class: "konsumsi_harian",         category: "pangan" },
+  "protein":       { qty: 0.05,  unit: "kg",    period_days: 1,   class: "konsumsi_harian",         category: "pangan" },
+  "mpasi":         { qty: 0.2,   unit: "kg",    period_days: 1,   class: "konsumsi_harian",         category: "pangan" },
+  "obat_obatan":   { qty: 0.05,  unit: "pcs",   period_days: 1,   class: "konsumsi_harian",         category: "sandang" },
+  "masker":        { qty: 1.0,   unit: "pcs",   period_days: 1,   class: "konsumsi_harian",         category: "sandang" },
+
+  "pembalut":      { qty: 8.0,   unit: "pcs",   period_days: 28,  class: "konsumsi_berkala",        category: "sandang" },
+  "popok_bayi":    { qty: 30.0,  unit: "pcs",   period_days: 14,  class: "konsumsi_berkala",        category: "sandang" },
+  "hygiene_kit":   { qty: 1.0,   unit: "kit",   period_days: 30,  class: "konsumsi_berkala",        category: "sandang" },
+  "baterai":       { qty: 4.0,   unit: "pcs",   period_days: 30,  class: "konsumsi_berkala",        category: "lainnya" },
+
+  "selimut":       { qty: 1.0,   unit: "pcs",   period_days: 365, class: "perlengkapan_tahan_lama", category: "sandang" },
+  "matras":        { qty: 1.0,   unit: "pcs",   period_days: 365, class: "perlengkapan_tahan_lama", category: "sandang" },
+
+  "radio_ht":      { qty: 2.0,   unit: "unit",  period_days: 730, class: "elektronik_logistik",     category: "lainnya" },
+};
 
 export async function inferPoskoCommodities(poskoId) {
   const posko = await getDocument(poskoId);
@@ -328,9 +333,9 @@ export async function inferPoskoCommodities(poskoId) {
       assetCommodities[key] = { category: a.category || "lainnya", unit: a.unit || "unit", stock: a.quantity_available || 0, threshold: a.min_threshold || 0 };
     }
   }
-  for (const spec of DEFAULT_COMMODITY_SPECS) {
-    if (normalizedAssetKeys.has(normalizeItemName(spec.key))) continue;
-    assetCommodities[spec.key] = {
+  for (const [commName, spec] of Object.entries(COMMODITY_SPECS)) {
+    if (normalizedAssetKeys.has(commName)) continue;
+    assetCommodities[commName] = {
       category: spec.category,
       unit: spec.unit,
       stock: 0,
@@ -429,6 +434,7 @@ export async function inferPoskoCommodities(poskoId) {
       current_stock_qty: r.current_stock,
       critical_stock_threshold: r.critical_threshold,
       history_days: r.history_days,
+      forecast_qty: r.recommendation?.top_recommendation?.forecast_target_need_qty || recalcForecastQty(r.commodity, totalPengungsi || 0, vulnerableCount || 0, 0, r.critical_threshold || 0),
       risk_level: r.recommendation?.top_recommendation?.risk_level || null,
       recommended_qty: r.recommendation?.top_recommendation?.recommended_qty || 0,
       shortage_qty: r.recommendation?.top_recommendation?.shortage_qty || 0,
@@ -436,6 +442,7 @@ export async function inferPoskoCommodities(poskoId) {
       priority_score: r.recommendation?.top_recommendation?.priority_score || 0,
       trust_score: r.recommendation?.top_recommendation?.trust_score || 0,
       inference_mode: r.recommendation?.inference_mode || "cold_start",
+      commodity_class: getCommoditySpec(r.commodity)?.class || null,
       rationale_chips: r.recommendation?.top_recommendation?.rationale_chips || [],
       daily_recommendations: r.recommendation?.daily_recommendations || [],
       error: r.error || null,
@@ -500,43 +507,110 @@ function inferDisasterType(kibBencanaId) {
   return "unknown";
 }
 
-const DAILY_NEED_PER_PERSON = {
-  "air_bersih": 20.0,
-  "air_minum": 4.0,
-  "beras": 0.4,
-  "mie_instan": 2.0,
-  "minyak_goreng": 0.03,
-  "protein": 0.05,
-  "mpasi": 0.2,
-  "hygiene_kit": 0.03,
-  "selimut": 0.02,
-  "matras": 0.02,
-  "masker": 1.0,
-  "obat_obatan": 0.05,
-  "pembalut": 0.08,
-  "popok_bayi": 0.3,
+function buildRecommendationChips({ commodity, spec, forecastQty, safetyStock, shortage, coverageDays, risk, vulnerableCount, totalPengungsi, currentStock, unit }) {
+  const chips = [];
+  const comm = commodity.charAt(0).toUpperCase() + commodity.slice(1);
+  const className = spec?.class;
+  const vRatio = vulnerableCount / Math.max(totalPengungsi, 1);
+
+  if (shortage > 0) {
+    chips.push(`${comm} mengalami kekurangan ${shortage.toFixed(1)} ${unit} dari total kebutuhan.`);
+  }
+
+  if (coverageDays < 1) {
+    chips.push(`Stok ${comm} hanya cukup untuk <1 hari — prioritas distribusi darurat.`);
+  } else if (coverageDays < 3) {
+    chips.push(`Stok ${comm} cukup ${coverageDays.toFixed(0)} hari — perlu segera distribusi.`);
+  } else if (shortage <= 0 && coverageDays >= 7) {
+    chips.push(`Stok ${comm} aman untuk ${coverageDays.toFixed(0)} hari ke depan.`);
+  }
+
+  if (className === "perlengkapan_tahan_lama") {
+    chips.push(`${comm} adalah perlengkapan tahan lama — distribusi 1x, bukan konsumsi harian.`);
+  } else if (className === "elektronik_logistik") {
+    chips.push(`${comm} adalah perlengkapan logistik — alokasi ${spec?.qty || 2} unit per posko saja.`);
+  } else if (className === "konsumsi_berkala") {
+    chips.push(`${comm} dikonsumsi berkala (${spec?.period_days || 30} hari per siklus) — kebutuhan ${forecastQty.toFixed(1)} ${unit}/hari setara.`);
+  } else if (className === "konsumsi_harian") {
+    if (forecastQty > 0) {
+      chips.push(`Konsumsi harian ${forecastQty.toFixed(1)} ${unit}/hari untuk ${totalPengungsi} jiwa.`);
+    }
+  }
+
+  if (vulnerableCount > 0 && vRatio > 0.15) {
+    chips.push(`${vulnerableCount} jiwa rentan (${(vRatio * 100).toFixed(0)}% dari total) meningkatkan prioritas.`);
+  }
+
+  return chips.slice(0, 3);
+}
+
+const NAME_ALIASES = {
+  "radio": "radio_ht",
+  "radio_ht": "radio_ht",
+  "popok": "popok_bayi",
+  "popok_bayi": "popok_bayi",
+  "hygiene_kit": "hygiene_kit",
+  "hygiene": "hygiene_kit",
+  "obat": "obat_obatan",
+  "obat_obatan": "obat_obatan",
+  "pembalut": "pembalut",
+  "pembalut_wanita": "pembalut",
+  "masker": "masker",
+  "air": "air_bersih",
+  "air_bersih": "air_bersih",
+  "air_minum": "air_minum",
+  "beras": "beras",
+  "mie_instan": "mie_instan",
+  "minyak_goreng": "minyak_goreng",
+  "minyak": "minyak_goreng",
+  "protein": "protein",
+  "mpasi": "mpasi",
+  "selimut": "selimut",
+  "matras": "matras",
+  "baterai": "baterai",
+  "battery": "baterai",
 };
 
 function normalizeItemName(name) {
-  return String(name).trim().toLowerCase().replace(/[-\s]/g, "_");
+  const raw = String(name).trim().toLowerCase().replace(/[-\s]/g, "_").replace(/[^a-z0-9_]/g, "");
+  return NAME_ALIASES[raw] || raw;
 }
 
-const DEFAULT_COMMODITY_MAP = new Map(
-  DEFAULT_COMMODITY_SPECS.map((spec) => [normalizeItemName(spec.key), spec])
-);
-
-function resolveDefaultCommodity(commodity) {
-  return DEFAULT_COMMODITY_MAP.get(normalizeItemName(commodity));
+function getCommoditySpec(commodity) {
+  return COMMODITY_SPECS[normalizeItemName(commodity)];
 }
 
 function recalcForecastQty(commodity, totalPengungsi, vulnerableCount, requestedQty = 0, criticalThreshold = 0) {
-  const itemKey = normalizeItemName(commodity);
-  const perPersonNeed = DAILY_NEED_PER_PERSON[itemKey] || 1.0;
-  const populationNeed = Math.max(totalPengungsi, 1) * perPersonNeed;
+  const spec = getCommoditySpec(commodity);
   const vulnerableRatio = vulnerableCount / Math.max(totalPengungsi, 1);
   const vulnerableMultiplier = 1.0 + Math.min(vulnerableRatio, 0.35);
-  const baseNeed = Math.max(populationNeed, requestedQty, criticalThreshold * 0.35);
-  return round2(Math.max(baseNeed * vulnerableMultiplier, 0));
+
+  let baseForecast;
+  if (!spec) {
+    baseForecast = Math.max(totalPengungsi, 1);
+  } else {
+    switch (spec.class) {
+      case "konsumsi_harian":
+        baseForecast = Math.max(totalPengungsi, 1) * spec.qty;
+        break;
+      case "konsumsi_berkala":
+        baseForecast = (Math.max(totalPengungsi, 1) * spec.qty) / spec.period_days;
+        break;
+      case "perlengkapan_tahan_lama": {
+        const totalNeeded = Math.ceil(Math.max(totalPengungsi, 1) * spec.qty);
+        baseForecast = Math.max(totalNeeded, 1) / 7;
+        break;
+      }
+      case "elektronik_logistik":
+        baseForecast = spec.qty;
+        break;
+      default:
+        baseForecast = Math.max(totalPengungsi, 1) * (spec.qty || 1.0);
+    }
+  }
+
+  const finalNeed = Math.max(baseForecast, requestedQty, criticalThreshold * 0.35);
+  return round2(Math.max(finalNeed * vulnerableMultiplier, 0));
 }
 
 export async function getRecommendationsFromDb({ limit = 25, posko_id = "", risk_level = "" } = {}) {
@@ -564,15 +638,15 @@ export async function getRecommendationsFromDb({ limit = 25, posko_id = "", risk
       Object.values(grouped).map((pred) => normalizeItemName(pred.commodity))
     );
     const today = new Date().toISOString().slice(0, 10);
-    for (const spec of DEFAULT_COMMODITY_SPECS) {
-      const normalizedKey = normalizeItemName(spec.key);
-      if (existingCommodityKeys.has(normalizedKey)) continue;
-      grouped[`${posko_id}::${spec.key}`] = {
+    for (const [commKey, spec] of Object.entries(COMMODITY_SPECS)) {
+      if (existingCommodityKeys.has(commKey)) continue;
+      grouped[`${posko_id}::${commKey}`] = {
         type: "prediction",
         posko_id,
-        commodity: spec.key,
+        commodity: commKey,
         prediction_date: today,
         unit: spec.unit,
+        item_category: spec.category,
         attribution_method: "cold_start_fallback",
         attribution_values: {
           requested_qty: 0,
@@ -580,7 +654,7 @@ export async function getRecommendationsFromDb({ limit = 25, posko_id = "", risk
           vulnerable_count: 0,
         },
       };
-      existingCommodityKeys.add(normalizedKey);
+      existingCommodityKeys.add(commKey);
     }
   }
 
@@ -588,19 +662,20 @@ export async function getRecommendationsFromDb({ limit = 25, posko_id = "", risk
   for (const [key, pred] of Object.entries(grouped)) {
     const posko = poskoMap[pred.posko_id] || {};
     const asset = assets.find((a) => normalizeItemName(a.commodity) === normalizeItemName(pred.commodity)) || {};
-    const defaultSpec = resolveDefaultCommodity(pred.commodity);
+    const spec = getCommoditySpec(pred.commodity);
     const currentStock = asset.quantity_available || 0;
     const vulnerabilityCount = (posko.count_balita || 0) + (posko.count_lansia || 0) + (posko.count_disabilitas || 0);
     const totalPengungsi = posko.total_pengungsi || 1;
     const requestedQty = pred.attribution_values?.requested_qty || 0;
     const criticalThreshold = asset.min_threshold || 0;
-    const unit = pred.unit || asset.unit || defaultSpec?.unit || "unit";
+    const unit = pred.unit || asset.unit || spec?.unit || "unit";
 
     const forecastQty = recalcForecastQty(pred.commodity, totalPengungsi, vulnerabilityCount, requestedQty, criticalThreshold);
-    const safetyStock = Math.max(forecastQty * 0.35, criticalThreshold) * (1 + Math.min(vulnerabilityCount / Math.max(totalPengungsi, 1), 0.35));
-    const recommendedQty = forecastQty + safetyStock;
     const vulnerableRatio = vulnerabilityCount / Math.max(totalPengungsi, 1);
-    const risk = vulnerableRatio > 0.3 ? "kritis" : vulnerableRatio > 0.15 ? "waspada" : "aman";
+    const safetyStock = Math.max(forecastQty * 0.35, criticalThreshold) * (1 + Math.min(vulnerableRatio, 0.35));
+    const shortage = Math.max(forecastQty + safetyStock - currentStock, 0);
+    const coverageDays = forecastQty > 0 ? currentStock / forecastQty : 99;
+    const risk = shortage > 0 ? (coverageDays < 1 ? "kritis" : "waspada") : "aman";
     const trust = 0.55;
     const priority = Math.min(
       (risk === "kritis" ? 35 : risk === "waspada" ? 20 : 5) +
@@ -611,9 +686,19 @@ export async function getRecommendationsFromDb({ limit = 25, posko_id = "", risk
       100
     );
 
-    const chips = [];
-    if (vulnerabilityCount > 0) chips.push(`Ada ${vulnerabilityCount} pengungsi rentan yang menaikkan prioritas bantuan posko ini.`);
-    chips.push(`Kebutuhan harian ${pred.commodity} posko ini ${forecastQty.toFixed(1)} ${unit}, alokasi safety stock ${round2(safetyStock)} ${unit}.`);
+    const chips = buildRecommendationChips({
+      commodity: pred.commodity,
+      spec,
+      forecastQty,
+      safetyStock,
+      shortage,
+      coverageDays,
+      risk,
+      vulnerableCount: vulnerabilityCount,
+      totalPengungsi,
+      currentStock,
+      unit,
+    });
 
     if (posko_id && pred.posko_id !== posko_id) continue;
     if (risk_level && risk !== risk_level) continue;
@@ -625,15 +710,18 @@ export async function getRecommendationsFromDb({ limit = 25, posko_id = "", risk
       item_name: pred.commodity,
       unit,
       forecast_qty: round2(forecastQty),
-      recommended_qty: round2(recommendedQty),
+      recommended_qty: round2(Math.max(forecastQty + safetyStock - currentStock, 0)),
       current_stock_qty: currentStock,
+      shortage_qty: round2(shortage),
+      coverage_days: round2(coverageDays),
       risk_level: risk,
       priority_score: round2(priority),
       trust_score: trust,
       inference_mode: pred.attribution_method?.includes("cold_start") ? "cold_start" : "time_series",
       rationale_chips: chips,
       critical_stock_threshold: criticalThreshold,
-      item_category: asset.category || defaultSpec?.category || "lainnya",
+      item_category: pred.item_category || asset.category || spec?.category || "lainnya",
+      commodity_class: spec?.class || null,
       total_pengungsi: totalPengungsi,
       vulnerable_count: vulnerabilityCount,
     });

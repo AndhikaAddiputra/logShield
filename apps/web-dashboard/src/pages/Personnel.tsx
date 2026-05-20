@@ -24,9 +24,10 @@ import {
   fetchPersonnel,
   fetchPoskos,
   rejectSignup,
+  updatePersonnel,
 } from "../lib/api";
 
-type ModalMode = "approve" | "reject" | null;
+type ModalMode = "approve" | "reject" | "edit" | null;
 
 const roleBadge: Record<string, "success" | "info" | "warning" | "muted"> = {
   lapangan: "success",
@@ -53,6 +54,9 @@ export function PersonnelPage() {
   const [approvePosko, setApprovePosko] = useState("");
   const [poskoList, setPoskoList] = useState<PoskoDoc[]>([]);
   const [rejectReason, setRejectReason] = useState("");
+  const [editPosko, setEditPosko] = useState("");
+  const [editRole, setEditRole] = useState("");
+  const [editKib, setEditKib] = useState("");
 
   const loadData = async () => {
     setLoading(true);
@@ -109,6 +113,38 @@ export function PersonnelPage() {
     setModalTarget(row);
     setModalMode("reject");
     setRejectReason("");
+  };
+
+  const openEdit = async (row: PersonnelRow) => {
+    setModalTarget(row);
+    setModalMode("edit");
+    setEditPosko(row.posko_assignment || "");
+    setEditRole(row.role || "lapangan");
+    setEditKib(row.kib_bencana_id || "");
+    try {
+      const res = await fetchPoskos();
+      setPoskoList(res.rows.filter((p) => p.status === "active"));
+    } catch {
+      setPoskoList([]);
+    }
+  };
+
+  const handleUpdatePersonnel = async () => {
+    if (!modalTarget) return;
+    setSubmitting(true);
+    try {
+      await updatePersonnel(modalTarget.id, {
+        posko_id: editPosko || null,
+        role: editRole,
+        kib_bencana_id: editKib || undefined,
+      });
+      closeModal();
+      loadData();
+    } catch (err: any) {
+      alert(err.message || "Gagal memperbarui personel");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const closeModal = () => {
@@ -306,7 +342,7 @@ export function PersonnelPage() {
                               </Button>
                             )}
                             {row.aksi.length === 0 && (
-                              <Button type="button" variant="outline" size="sm">Edit</Button>
+                              <Button type="button" variant="outline" size="sm" onClick={() => openEdit(row)}>Edit</Button>
                             )}
                           </div>
                         </TableCell>
@@ -410,6 +446,60 @@ export function PersonnelPage() {
                 disabled={submitting || !rejectReason.trim()}
               >
                 {submitting ? "Menolak..." : "Tolak"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {modalMode === "edit" && modalTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-ls-lg border border-ls-border bg-white p-6 shadow-2xl space-y-5">
+            <h2 className="text-lg font-bold text-ls-navy">Edit Personel</h2>
+            <p className="text-sm text-ls-muted">
+              Mengedit: <strong>{modalTarget.nama_personel}</strong>
+            </p>
+
+            <div className="space-y-4">
+              <Field label="Role">
+                <SelectField value={editRole} onChange={(e) => setEditRole(e.target.value)}>
+                  <option value="admin">Admin</option>
+                  <option value="koordinator">Koordinator</option>
+                  <option value="lapangan">Lapangan</option>
+                </SelectField>
+              </Field>
+
+              <Field label="KIB Bencana ID">
+                <Input
+                  value={editKib}
+                  onChange={(e) => setEditKib(e.target.value.toUpperCase())}
+                  placeholder="BNC-2026-JK-0001"
+                />
+              </Field>
+
+              <Field label="Posko Assignment">
+                <SelectField value={editPosko} onChange={(e) => setEditPosko(e.target.value)}>
+                  <option value="">Tidak ditugaskan</option>
+                  {poskoList.map((p) => (
+                    <option key={p._id} value={p._id}>
+                      {p.name} — {p.kib_16} ({p.district}, {p.province})
+                    </option>
+                  ))}
+                </SelectField>
+              </Field>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <Button type="button" variant="outline" onClick={closeModal} disabled={submitting}>
+                Batal
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
+                onClick={handleUpdatePersonnel}
+                disabled={submitting}
+              >
+                {submitting ? "Menyimpan..." : "Simpan"}
               </Button>
             </div>
           </div>

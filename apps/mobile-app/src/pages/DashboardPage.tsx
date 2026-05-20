@@ -239,7 +239,7 @@ export default function DashboardPage() {
                     <div className="grid grid-cols-3 gap-2 pt-2 border-t border-gray-50 text-center">
                       <div>
                         <p className="text-[10px] text-gray-400 font-bold">KEBUTUHAN</p>
-                        <p className="text-xs font-black text-purple-700">{Number(m.forecast_qty || 0).toFixed(0)} <span className="text-[10px]">{m.unit}</span>{['pangan', 'lainnya'].includes((m.item_category || '').toLowerCase()) ? '/hari' : ''}</p>
+                        <p className="text-xs font-black text-purple-700">{Number(m.forecast_qty || 0).toFixed(0)} <span className="text-[10px]">{m.unit}</span>{['konsumsi_harian', 'konsumsi_berkala'].includes(m.commodity_class) ? '/hari' : ''}</p>
                       </div>
                       <div>
                         <p className="text-[10px] text-gray-400 font-bold">REKOMENDASI</p>

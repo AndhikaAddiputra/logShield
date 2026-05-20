@@ -383,6 +383,9 @@ export function DashboardPage() {
                 const priority = Number(r.priority_score || 0);
                 const shortage = Number(r.shortage_qty || 0);
                 const recommended = Number(r.recommended_qty || 0);
+                const forecast = Number(r.forecast_qty || 0);
+                const commClass = String(r.commodity_class || "");
+                const showPerHari = commClass === "konsumsi_harian" || commClass === "konsumsi_berkala";
                 const chips = Array.isArray(r.rationale_chips) ? r.rationale_chips : [];
                 return (
                   <div key={i} className={`rounded border p-3 text-xs ${
@@ -406,6 +409,9 @@ export function DashboardPage() {
                       )}
                     </div>
                     <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-ls-muted">
+                      {forecast > 0 && (
+                        <span>Kebutuhan: <strong>{forecast.toFixed(0)}</strong> {String(r.unit || "")}{showPerHari ? "/hari" : ""}</span>
+                      )}
                       {recommended > 0 && (
                         <span>Rekomendasi: <strong>{recommended.toFixed(0)}</strong> {String(r.unit || "")}</span>
                       )}
