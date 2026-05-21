@@ -427,26 +427,43 @@ export async function inferPoskoCommodities(poskoId) {
     vulnerable_count: vulnerableCount,
     items_analyzed: results.length,
     items: results,
-    results: results.map((r) => ({
-      item_name: r.commodity,
-      item_category: r.category,
-      unit: r.unit,
-      current_stock_qty: r.current_stock,
-      critical_stock_threshold: r.critical_threshold,
-      history_days: r.history_days,
-      forecast_qty: r.recommendation?.top_recommendation?.forecast_target_need_qty || recalcForecastQty(r.commodity, totalPengungsi || 0, vulnerableCount || 0, 0, r.critical_threshold || 0),
-      risk_level: r.recommendation?.top_recommendation?.risk_level || null,
-      recommended_qty: r.recommendation?.top_recommendation?.recommended_qty || 0,
-      shortage_qty: r.recommendation?.top_recommendation?.shortage_qty || 0,
-      coverage_days: r.recommendation?.top_recommendation?.coverage_days || 0,
-      priority_score: r.recommendation?.top_recommendation?.priority_score || 0,
-      trust_score: r.recommendation?.top_recommendation?.trust_score || 0,
-      inference_mode: r.recommendation?.inference_mode || "cold_start",
-      commodity_class: getCommoditySpec(r.commodity)?.class || null,
-      rationale_chips: r.recommendation?.top_recommendation?.rationale_chips || [],
-      daily_recommendations: r.recommendation?.daily_recommendations || [],
-      error: r.error || null,
-    })),
+    results: results.map((r) => {
+      const fc = r.recommendation?.top_recommendation?.forecast_target_need_qty || recalcForecastQty(r.commodity, totalPengungsi || 0, vulnerableCount || 0, 0, r.critical_threshold || 0);
+      const spec = getCommoditySpec(r.commodity);
+      const trend = computeTrendAnalysis(requests, poskoId, r.commodity);
+      const att = computeDataAttribution({
+        trend,
+        vulnerableRatio: (vulnerableCount || 0) / Math.max(totalPengungsi || 1, 1),
+        coverageDays: r.recommendation?.top_recommendation?.coverage_days || 99,
+        shortage: r.recommendation?.top_recommendation?.shortage_qty || 0,
+        forecastQty: fc,
+        criticalThreshold: r.critical_threshold || 0,
+        currentStock: r.current_stock || 0,
+      });
+      return {
+        item_name: r.commodity,
+        item_category: r.category,
+        unit: r.unit,
+        current_stock_qty: r.current_stock,
+        critical_stock_threshold: r.critical_threshold,
+        history_days: r.history_days,
+        forecast_qty: fc,
+        risk_level: r.recommendation?.top_recommendation?.risk_level || null,
+        recommended_qty: r.recommendation?.top_recommendation?.recommended_qty || 0,
+        shortage_qty: r.recommendation?.top_recommendation?.shortage_qty || 0,
+        coverage_days: r.recommendation?.top_recommendation?.coverage_days || 0,
+        priority_score: r.recommendation?.top_recommendation?.priority_score || 0,
+        trust_score: r.recommendation?.top_recommendation?.trust_score || 0,
+        inference_mode: r.recommendation?.inference_mode || "cold_start",
+        commodity_class: spec?.class || null,
+        rationale_chips: r.recommendation?.top_recommendation?.rationale_chips || [],
+        daily_recommendations: r.recommendation?.daily_recommendations || [],
+        trend_direction: trend.direction,
+        trend_pct_7d: trend.pct7d,
+        attribution,
+        error: r.error || null,
+      };
+    }),
     stored_predictions: docsToStore.length,
   };
 }
@@ -507,7 +524,7 @@ function inferDisasterType(kibBencanaId) {
   return "unknown";
 }
 
-function buildRecommendationChips({ commodity, spec, forecastQty, safetyStock, shortage, coverageDays, risk, vulnerableCount, totalPengungsi, currentStock, unit }) {
+function buildRecommendationChips({ commodity, spec, forecastQty, safetyStock, shortage, coverageDays, risk, vulnerableCount, totalPengungsi, currentStock, unit, trend }) {
   const chips = [];
   const comm = commodity.charAt(0).toUpperCase() + commodity.slice(1);
   const className = spec?.class;
@@ -523,6 +540,17 @@ function buildRecommendationChips({ commodity, spec, forecastQty, safetyStock, s
     chips.push(`Stok ${comm} cukup ${coverageDays.toFixed(0)} hari — perlu segera distribusi.`);
   } else if (shortage <= 0 && coverageDays >= 7) {
     chips.push(`Stok ${comm} aman untuk ${coverageDays.toFixed(0)} hari ke depan.`);
+  }
+
+  if (trend) {
+    const abs = Math.abs(trend.pct7d);
+    if (trend.direction === "rising" && abs >= 30) {
+      chips.push(`Permintaan ${comm} naik ${trend.pct7d > 0 ? trend.pct7d.toFixed(0) : trend.pct7d.toFixed(0)}% dalam 7 hari terakhir.`);
+    } else if (trend.direction === "falling" && abs >= 30) {
+      chips.push(`Permintaan ${comm} turun ${abs.toFixed(0)}% dalam 7 hari — kebutuhan melandai.`);
+    } else if (trend.pct30d > 30) {
+      chips.push(`Permintaan ${comm} naik ${trend.pct30d.toFixed(0)}% dalam 30 hari — tren meningkat.`);
+    }
   }
 
   if (className === "perlengkapan_tahan_lama") {
@@ -626,6 +654,12 @@ export async function getRecommendationsFromDb({ limit = 25, posko_id = "", risk
     poskoMap[p._id] = p;
   }
 
+  const requestResult = await findDocuments({ type: "request" }, { limit: 1000 });
+  const allRequests = (requestResult.docs || []).filter((r) => r.posko_id);
+
+  const movementResult = await findDocuments({ type: "stock_movement" }, { limit: 1000 });
+  const allMovements = movementResult.docs || [];
+
   const grouped = {};
   for (const pred of predictions) {
     const key = `${pred.posko_id}::${pred.commodity}`;
@@ -670,6 +704,8 @@ export async function getRecommendationsFromDb({ limit = 25, posko_id = "", risk
     const criticalThreshold = asset.min_threshold || 0;
     const unit = pred.unit || asset.unit || spec?.unit || "unit";
 
+    const trend = computeTrendAnalysis(allRequests, pred.posko_id, pred.commodity);
+
     const forecastQty = recalcForecastQty(pred.commodity, totalPengungsi, vulnerabilityCount, requestedQty, criticalThreshold);
     const vulnerableRatio = vulnerabilityCount / Math.max(totalPengungsi, 1);
     const safetyStock = Math.max(forecastQty * 0.35, criticalThreshold) * (1 + Math.min(vulnerableRatio, 0.35));
@@ -686,6 +722,9 @@ export async function getRecommendationsFromDb({ limit = 25, posko_id = "", risk
       100
     );
 
+    const attribution = computeDataAttribution({ trend, vulnerableRatio, coverageDays, shortage, forecastQty, criticalThreshold, currentStock });
+
+    const treg = trend;
     const chips = buildRecommendationChips({
       commodity: pred.commodity,
       spec,
@@ -698,6 +737,7 @@ export async function getRecommendationsFromDb({ limit = 25, posko_id = "", risk
       totalPengungsi,
       currentStock,
       unit,
+      trend: treg,
     });
 
     if (posko_id && pred.posko_id !== posko_id) continue;
@@ -724,11 +764,75 @@ export async function getRecommendationsFromDb({ limit = 25, posko_id = "", risk
       commodity_class: spec?.class || null,
       total_pengungsi: totalPengungsi,
       vulnerable_count: vulnerabilityCount,
+      trend_direction: treg.direction,
+      trend_pct_7d: treg.pct7d,
+      trend_pct_30d: treg.pct30d,
+      attribution,
     });
   }
 
   rows.sort((a, b) => (b.priority_score || 0) - (a.priority_score || 0));
   return { count: rows.length, rows: rows.slice(0, limit) };
+}
+
+function computeTrendAnalysis(allRequests, poskoId, commodity) {
+  const today = new Date();
+  const cutoff7 = new Date(today);
+  cutoff7.setDate(cutoff7.getDate() - 7);
+  const cutoff30 = new Date(today);
+  cutoff30.setDate(cutoff30.getDate() - 30);
+
+  const poskoRequests = allRequests.filter((r) => r.posko_id === poskoId).sort((a, b) => (a.created_at || "").localeCompare(b.created_at || ""));
+  const normComm = normalizeItemName(commodity);
+
+  let recent7 = 0;
+  let prior7 = 0;
+  let recent30 = 0;
+  let prior30 = 0;
+
+  for (const req of poskoRequests) {
+    const date = new Date(req.created_at || 0);
+    if (date > today) continue;
+    const isAfter7 = date >= cutoff7;
+    const isAfter30 = date >= cutoff30;
+    for (const item of req.items || []) {
+      if (normalizeItemName(item.commodity || item.name || "") !== normComm) continue;
+      const qty = Number(item.quantity || item.qty || 0);
+      if (isAfter7) recent7 += qty;
+      else prior7 += qty;
+      if (isAfter30) recent30 += qty;
+      else prior30 += qty;
+    }
+  }
+
+  const pct7d = prior7 > 0 ? round2(((recent7 - prior7) / prior7) * 100) : recent7 > 0 ? 100 : 0;
+  const pct30d = prior30 > 0 ? round2(((recent30 - prior30) / prior30) * 100) : recent30 > 0 ? 100 : 0;
+  const direction = pct7d > 20 ? "rising" : pct7d < -20 ? "falling" : "stable";
+
+  return { direction, pct7d, pct30d, recent7, prior7 };
+}
+
+function computeDataAttribution({ trend, vulnerableRatio, coverageDays, shortage, forecastQty, criticalThreshold, currentStock }) {
+  const trendImpact = Math.min(Math.abs(trend.pct7d) / 100, 1);
+  const coverageImpact = coverageDays > 0 ? Math.min(1 / Math.max(coverageDays, 0.5), 1) : 1;
+  const vulnerableImpact = vulnerableRatio;
+  const depletionRisk = shortage > 0 && coverageDays < 3 ? 1 : shortage > 0 ? 0.5 : 0;
+  const gapRatio = criticalThreshold > 0 ? Math.min(currentStock / criticalThreshold, 1) : 0.5;
+
+  const raw = {
+    trend_request_change: trendImpact,
+    coverage_risk: coverageImpact,
+    vulnerable_impact: vulnerableImpact,
+    stock_depletion_risk: depletionRisk,
+    threshold_gap: 1 - gapRatio,
+  };
+
+  const total = Object.values(raw).reduce((s, v) => s + v, 0) || 1;
+  const normalized = {};
+  for (const [k, v] of Object.entries(raw)) {
+    normalized[k] = round2(v / total);
+  }
+  return normalized;
 }
 
 function round2(v) {

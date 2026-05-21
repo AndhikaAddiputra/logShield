@@ -453,6 +453,22 @@ export function createRequest(payload: CreateRequestPayload) {
   });
 }
 
+export interface QuickRequestPayload {
+  posko_id: string;
+  commodity: string;
+  quantity: number;
+  unit: string;
+  priority?: string;
+  note?: string;
+}
+
+export function quickRequest(payload: QuickRequestPayload) {
+  return request("/api/ai/quick-request", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 export interface DashboardOverview {
   ok: boolean;
   cards: {
@@ -685,6 +701,9 @@ export interface AiInferenceResult {
   commodity_class: string | null;
   rationale_chips: string[];
   daily_recommendations: Record<string, unknown>[];
+  trend_direction?: string;
+  trend_pct_7d?: number;
+  attribution?: Record<string, number>;
   error: string | null;
 }
 
@@ -701,4 +720,32 @@ export function triggerAiInference(poskoId: string) {
     `/api/ai/infer/posko/${poskoId}`,
     { method: "POST" }
   );
+}
+
+export interface AnomalyReport {
+  _id: string;
+  type: string;
+  posko_id: string;
+  commodity: string;
+  severity: "low" | "medium" | "high" | "critical";
+  status: "reported" | "investigating" | "resolved";
+  reported_by: string;
+  description?: string;
+  location?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export function fetchAnomalyReports(params: Record<string, string> = {}) {
+  const qs = new URLSearchParams(params).toString();
+  return request<{ count: number; rows: AnomalyReport[] }>(
+    `/api/anomalies${qs ? `?${qs}` : ""}`
+  );
+}
+
+export function updateAnomalyStatus(id: string, status: string) {
+  return request(`/api/anomalies/${encodeURIComponent(id)}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
 }

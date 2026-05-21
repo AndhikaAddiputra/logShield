@@ -86,6 +86,8 @@ export function validateLogShieldDocument(doc) {
       return validateAsset(doc);
     case "stock_movement":
       return validateStockMovement(doc);
+    case "anomaly_report":
+      return validateAnomalyReport(doc);
     case "audit_log":
       return validateAuditLog(doc);
     default:
@@ -255,6 +257,24 @@ export function createRequestDoc(
     updated_at: now.toISOString(),
   };
   validateRequest(doc);
+  return doc;
+}
+
+export function createAnomalyReportDoc(payload, now = new Date()) {
+  const doc = {
+    _id: `anomaly_report::${randomUUID()}`,
+    type: "anomaly_report",
+    posko_id: payload.posko_id,
+    commodity: payload.commodity,
+    severity: payload.severity || "medium",
+    status: payload.status || "reported",
+    reported_by: payload.reported_by,
+    description: payload.description || "",
+    location: payload.location || "",
+    created_at: now.toISOString(),
+    updated_at: now.toISOString(),
+  };
+  validateAnomalyReport(doc);
   return doc;
 }
 
@@ -524,6 +544,24 @@ function validateRequest(doc) {
   enumValue(doc.priority, requestPriorities, "priority");
   nullableString(doc.processed_by, "processed_by");
   nullableIsoTimestamp(doc.processed_at, "processed_at");
+  isoTimestamp(doc.created_at, "created_at");
+  isoTimestamp(doc.updated_at, "updated_at");
+  return doc;
+}
+
+const anomalySeverities = ["low", "medium", "high", "critical"];
+const anomalyStatuses = ["reported", "investigating", "resolved"];
+
+function validateAnomalyReport(doc) {
+  requireId(doc, /^anomaly_report::/);
+  exact(doc.type, "anomaly_report", "type");
+  requiredString(doc.posko_id, "posko_id");
+  requiredString(doc.commodity, "commodity");
+  enumValue(doc.severity, anomalySeverities, "severity");
+  enumValue(doc.status, anomalyStatuses, "status");
+  requiredString(doc.reported_by, "reported_by");
+  optionalString(doc.description, "description");
+  optionalString(doc.location, "location");
   isoTimestamp(doc.created_at, "created_at");
   isoTimestamp(doc.updated_at, "updated_at");
   return doc;

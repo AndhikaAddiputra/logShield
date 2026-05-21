@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { RefreshCw, Utensils, Shirt, Tent, ChevronRight, Activity, Loader2, Users, FileText, Edit3, Check, X } from 'lucide-react';
+import { RefreshCw, Utensils, Shirt, Tent, ChevronRight, Activity, Loader2, Users, FileText, Edit3, Check, X, ShoppingCart, AlertTriangle } from 'lucide-react';
 import { API_BASE_URL, getAuthHeaders } from '../lib/api';
 
 const RISK_STYLES: Record<string, string> = {
@@ -20,9 +20,20 @@ export default function DashboardPage() {
   const [savingDemografi, setSavingDemografi] = useState(false);
   const [demografiMessage, setDemografiMessage] = useState<string | null>(null);
 
-  const [requests, setRequests] = useState<any[]>([]);
-  const [requestsLoading, setRequestsLoading] = useState(true);
   const inferenceAttemptedRef = useRef(false);
+
+  const [requestingItem, setRequestingItem] = useState<any | null>(null);
+  const [reqQty, setReqQty] = useState(0);
+  const [reqPriority, setReqPriority] = useState<'normal' | 'mendesak'>('normal');
+  const [reqLoading, setReqLoading] = useState(false);
+
+  const [showAnomalyForm, setShowAnomalyForm] = useState(false);
+  const [aCommodity, setACommodity] = useState('');
+  const [aSeverity, setASeverity] = useState('medium');
+  const [aDescription, setADescription] = useState('');
+  const [aLocation, setALocation] = useState('');
+  const [aLoading, setALoading] = useState(false);
+  const [aDone, setADone] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem('logshield_user');
@@ -65,24 +76,6 @@ export default function DashboardPage() {
       } catch {}
     };
     fetchPosko();
-  }, [userPoskoId]);
-
-  useEffect(() => {
-    if (!userPoskoId) return;
-
-    const fetchRequests = async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/requests?limit=5`, { headers: getAuthHeaders() });
-        if (!res.ok) return;
-        const data = await res.json();
-        const all = data.rows || [];
-        const filtered = all.filter((r: any) => r.posko_id === userPoskoId);
-        setRequests(filtered);
-      } catch {} finally {
-        setRequestsLoading(false);
-      }
-    };
-    fetchRequests();
   }, [userPoskoId]);
 
   const fetchAI = async () => {
@@ -192,6 +185,69 @@ export default function DashboardPage() {
     }
   };
 
+  const handleQuickRequest = async () => {
+    if (!requestingItem || !userPoskoId || reqQty <= 0) return;
+    setReqLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/ai/quick-request`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          posko_id: userPoskoId,
+          commodity: requestingItem.item_name,
+          quantity: reqQty,
+          unit: requestingItem.unit || 'unit',
+          priority: reqPriority,
+          note: `Permintaan cepat dari rekomendasi AI: ${requestingItem.item_name}`,
+        }),
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.message || 'Gagal mengirim permintaan');
+      }
+      setRequestingItem(null);
+      alert('Permintaan berhasil dikirim!');
+      fetchAI();
+    } catch (err: any) {
+      alert('Error: ' + err.message);
+    } finally {
+      setReqLoading(false);
+    }
+  };
+
+  const handleAnomalySubmit = async () => {
+    if (!userPoskoId || !aCommodity.trim()) return;
+    setALoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/anomalies`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          posko_id: userPoskoId,
+          commodity: aCommodity.trim(),
+          severity: aSeverity,
+          description: aDescription.trim(),
+          location: aLocation.trim(),
+        }),
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.message || 'Gagal mengirim laporan');
+      }
+      setACommodity('');
+      setASeverity('medium');
+      setADescription('');
+      setALocation('');
+      setShowAnomalyForm(false);
+      setADone(true);
+      setTimeout(() => setADone(false), 3000);
+    } catch (err: any) {
+      alert('Error: ' + err.message);
+    } finally {
+      setALoading(false);
+    }
+  };
+
   const riskBadge = (risk: string, inferenceMode: string) => (
     <div className="flex items-center gap-1">
       <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded uppercase ${RISK_STYLES[risk] || 'bg-blue-100 text-blue-700'}`}>
@@ -250,32 +306,77 @@ export default function DashboardPage() {
                         <p className="text-xs font-black text-gray-600">{Number(m.current_stock_qty || 0).toFixed(0)} <span className="text-[10px]">{m.unit}</span></p>
                       </div>
                     </div>
-                    <div className="flex gap-3 mt-2 text-[10px] text-gray-500">
-                      <span>Prioritas: <strong>{Number(m.priority_score || 0).toFixed(1)}</strong></span>
-                      <span>Trust: <strong>{Number(m.trust_score || 0).toFixed(2)}</strong></span>
-                    </div>
-                    {chips.length > 0 && (
+                      <div className="flex gap-3 mt-2 text-[10px] text-gray-500">
+                        <span>Prioritas: <strong>{Number(m.priority_score || 0).toFixed(1)}</strong></span>
+                        <span>Trust: <strong>{Number(m.trust_score || 0).toFixed(2)}</strong></span>
+                        {m.trend_direction === 'rising' && <span className="text-red-500 font-bold">↑ Naik</span>}
+                        {m.trend_direction === 'falling' && <span className="text-green-500 font-bold">↓ Turun</span>}
+                      </div>
+                      {chips.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-2">
                         {chips.map((chip: string, ci: number) => (
                           <span key={ci} className="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{chip}</span>
                         ))}
                       </div>
                     )}
+                    <button
+                      onClick={() => { setRequestingItem(m); setReqQty(Number(m.recommended_qty || m.forecast_qty || 0) || 1); setReqPriority('normal'); }}
+                      className="mt-3 w-full flex items-center justify-center gap-1.5 bg-blue-700 text-white text-xs font-bold py-2.5 rounded-lg"
+                    >
+                      <ShoppingCart className="w-3.5 h-3.5" />
+                      Minta {Number(m.recommended_qty || m.forecast_qty || 0).toFixed(0)} {m.unit}
+                    </button>
                   </div>
                 );
               })}
             </div>
           )}
         </div>
+
+      {requestingItem && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-end justify-center">
+          <div className="bg-white w-full rounded-t-2xl p-5 pb-8 space-y-4">
+            <h3 className="font-black text-blue-900 text-base">Request {requestingItem.item_name}</h3>
+            <div>
+              <label className="text-xs font-bold text-gray-500 block mb-1">Jumlah</label>
+              <div className="flex items-center gap-3">
+                <button onClick={() => setReqQty(Math.max(1, reqQty - 1))} className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-lg font-bold text-gray-600">-</button>
+                <input type="number" min="1" value={reqQty}
+                  onChange={(e) => setReqQty(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="flex-1 border border-gray-200 rounded-lg px-3 py-2.5 text-center text-lg font-black text-blue-900"
+                />
+                <button onClick={() => setReqQty(reqQty + 1)} className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-lg font-bold text-gray-600">+</button>
+              </div>
+              <p className="text-[10px] text-gray-400 mt-1">Satuan: {requestingItem.unit}</p>
+            </div>
+            <div>
+              <label className="text-xs font-bold text-gray-500 block mb-1">Prioritas</label>
+              <div className="flex gap-2">
+                <button onClick={() => setReqPriority('normal')}
+                  className={`flex-1 py-2.5 rounded-lg text-xs font-bold ${reqPriority === 'normal' ? 'bg-blue-700 text-white' : 'bg-gray-100 text-gray-600'}`}
+                >Normal</button>
+                <button onClick={() => setReqPriority('mendesak')}
+                  className={`flex-1 py-2.5 rounded-lg text-xs font-bold ${reqPriority === 'mendesak' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-600'}`}
+                >Mendesak</button>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setRequestingItem(null)} disabled={reqLoading}
+                className="flex-1 py-2.5 rounded-lg text-xs font-bold bg-gray-100 text-gray-600"
+              >Batal</button>
+              <button onClick={handleQuickRequest} disabled={reqLoading || reqQty <= 0}
+                className="flex-1 py-2.5 rounded-lg text-xs font-bold bg-blue-700 text-white flex items-center justify-center gap-1.5"
+              >
+                {reqLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShoppingCart className="w-4 h-4" />}
+                Kirim Permintaan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       </div>
     );
   }
-
-  const statusCounts = { menunggu: 0, diproses: 0, selesai: 0, ditolak: 0 };
-  requests.forEach((r) => {
-    const s = (r.status || '').toLowerCase();
-    if (s in statusCounts) statusCounts[s as keyof typeof statusCounts]++;
-  });
 
   const totalPengungsi = (poskoData?.count_pria || 0) + (poskoData?.count_perempuan || 0) + (poskoData?.count_lansia || 0) + (poskoData?.count_balita || 0) + (poskoData?.count_disabilitas || 0);
 
@@ -404,48 +505,126 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Request Summary */}
+        {/* Laporan Anomali */}
         <div>
-          <h3 className="font-black text-base text-gray-800 tracking-tight mb-3">RINGKASAN PERMINTAAN</h3>
-          {requestsLoading ? (
-            <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin text-blue-500" /></div>
-          ) : requests.length === 0 ? (
-            <div className="bg-gray-50 border border-gray-100 p-4 rounded-xl text-center">
-              <FileText className="w-6 h-6 text-gray-400 mx-auto mb-1" />
-              <p className="text-sm font-bold text-gray-500">Belum ada permintaan</p>
+          <h3 className="font-black text-base text-gray-800 tracking-tight mb-3">LAPORAN INSIDEN/ ANOMALI</h3>
+          {aDone && (
+            <div className="bg-green-50 border border-green-200 p-4 rounded-xl text-center mb-3">
+              <Check className="w-6 h-6 text-green-600 mx-auto mb-1" />
+              <p className="text-sm font-bold text-green-700">Laporan terkirim!</p>
             </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-4 gap-2 mb-3">
-                {[
-                  { label: 'Menunggu', value: statusCounts.menunggu, color: 'text-yellow-600', bg: 'bg-yellow-50' },
-                  { label: 'Diproses', value: statusCounts.diproses, color: 'text-blue-600', bg: 'bg-blue-50' },
-                  { label: 'Selesai', value: statusCounts.selesai, color: 'text-green-600', bg: 'bg-green-50' },
-                  { label: 'Total', value: requests.length, color: 'text-gray-800', bg: 'bg-gray-100' },
-                ].map((s) => (
-                  <div key={s.label} className={`${s.bg} rounded-lg py-2 text-center`}>
-                    <p className={`text-sm font-black ${s.color}`}>{s.value}</p>
-                    <p className="text-[9px] font-bold text-gray-500">{s.label}</p>
-                  </div>
-                ))}
-              </div>
-              <div className="space-y-2">
-                {requests.slice(0, 3).map((r: any, idx: number) => (
-                  <div key={idx} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
-                    <div className="min-w-0 flex-1 mr-2">
-                      <p className="text-xs font-bold text-gray-700 truncate">{r.request_code}</p>
-                      <p className="text-[10px] text-gray-500">{r.date}</p>
-                    </div>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${r.status_color === 'success' ? 'bg-green-100 text-green-700' : r.status_color === 'warning' ? 'bg-yellow-100 text-yellow-700' : r.status_color === 'danger' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
-                      {r.status_label}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </>
           )}
+          <button onClick={() => { setShowAnomalyForm(true); setADone(false); }}
+            className="w-full bg-red-600 text-white font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-2"
+          >
+            <AlertTriangle className="w-5 h-5" />
+            Lapor!
+          </button>
         </div>
       </div>
+
+      {requestingItem && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-end justify-center">
+          <div className="bg-white w-full rounded-t-2xl p-5 pb-8 space-y-4">
+            <h3 className="font-black text-blue-900 text-base">Request {requestingItem.item_name}</h3>
+            <div>
+              <label className="text-xs font-bold text-gray-500 block mb-1">Jumlah</label>
+              <div className="flex items-center gap-3">
+                <button onClick={() => setReqQty(Math.max(1, reqQty - 1))} className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-lg font-bold text-gray-600">-</button>
+                <input type="number" min="1" value={reqQty}
+                  onChange={(e) => setReqQty(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="flex-1 border border-gray-200 rounded-lg px-3 py-2.5 text-center text-lg font-black text-blue-900"
+                />
+                <button onClick={() => setReqQty(reqQty + 1)} className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-lg font-bold text-gray-600">+</button>
+              </div>
+              <p className="text-[10px] text-gray-400 mt-1">Satuan: {requestingItem.unit}</p>
+            </div>
+            <div>
+              <label className="text-xs font-bold text-gray-500 block mb-1">Prioritas</label>
+              <div className="flex gap-2">
+                <button onClick={() => setReqPriority('normal')}
+                  className={`flex-1 py-2.5 rounded-lg text-xs font-bold ${reqPriority === 'normal' ? 'bg-blue-700 text-white' : 'bg-gray-100 text-gray-600'}`}
+                >Normal</button>
+                <button onClick={() => setReqPriority('mendesak')}
+                  className={`flex-1 py-2.5 rounded-lg text-xs font-bold ${reqPriority === 'mendesak' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-600'}`}
+                >Mendesak</button>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setRequestingItem(null)} disabled={reqLoading}
+                className="flex-1 py-2.5 rounded-lg text-xs font-bold bg-gray-100 text-gray-600"
+              >Batal</button>
+              <button onClick={handleQuickRequest} disabled={reqLoading || reqQty <= 0}
+                className="flex-1 py-2.5 rounded-lg text-xs font-bold bg-blue-700 text-white flex items-center justify-center gap-1.5"
+              >
+                {reqLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShoppingCart className="w-4 h-4" />}
+                Kirim Permintaan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAnomalyForm && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-end justify-center">
+          <div className="bg-white w-full rounded-t-2xl p-5 pb-8 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-black text-red-600 text-base">Buat Laporan</h3>
+              <button onClick={() => setShowAnomalyForm(false)} className="p-1"><X className="w-5 h-5 text-gray-400" /></button>
+            </div>
+            <div>
+              <label className="text-xs font-bold text-gray-500 block mb-1">Judul</label>
+              <input type="text" value={aCommodity}
+                onChange={(e) => setACommodity(e.target.value)}
+                placeholder="Contoh: Terjadi gempa lanjutan..."
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm font-bold text-gray-800"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-gray-500 block mb-2">Tingkat Keparahan</label>
+              <div className="flex gap-2">
+                {[
+                  { value: 'low', label: 'Rendah', c: 'bg-green-100 text-green-700' },
+                  { value: 'medium', label: 'Sedang', c: 'bg-yellow-100 text-yellow-700' },
+                  { value: 'high', label: 'Tinggi', c: 'bg-orange-100 text-orange-700' },
+                  { value: 'critical', label: 'Kritis', c: 'bg-red-100 text-red-700' },
+                ].map((s) => (
+                  <button key={s.value} type="button" onClick={() => setASeverity(s.value)}
+                    className={`flex-1 py-2 rounded-lg text-xs font-bold ${aSeverity === s.value ? s.c + ' ring-2 ring-offset-1' : 'bg-gray-100 text-gray-500'}`}
+                  >{s.label}</button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-bold text-gray-500 block mb-1">Deskripsi</label>
+              <textarea value={aDescription}
+                onChange={(e) => setADescription(e.target.value)}
+                placeholder="Jelaskan insiden yang terjadi..."
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-800 resize-none h-24"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-gray-500 block mb-1">Lokasi Spesifik (Opsional)</label>
+              <input type="text" value={aLocation}
+                onChange={(e) => setALocation(e.target.value)}
+                placeholder="Contoh: Posko 3, Rak A-12"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm font-bold text-gray-800"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setShowAnomalyForm(false)} disabled={aLoading}
+                className="flex-1 py-2.5 rounded-lg text-xs font-bold bg-gray-100 text-gray-600"
+              >Batal</button>
+              <button onClick={handleAnomalySubmit} disabled={aLoading || !aCommodity.trim()}
+                className="flex-1 py-2.5 rounded-lg text-xs font-bold bg-red-600 text-white flex items-center justify-center gap-1.5"
+              >
+                {aLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <AlertTriangle className="w-4 h-4" />}
+                Kirim Laporan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

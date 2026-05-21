@@ -56,6 +56,12 @@ import {
 } from "./settings.js";
 import { addStock, deleteAsset, getStockCategories, getStockSummary, getStockTrend, updateAsset } from "./stocks.js";
 import {
+  createAnomalyReport,
+  getAnomalyReport,
+  listAnomalyReports,
+  updateAnomalyReportStatus,
+} from "./anomalies.js";
+import {
   createAuditLogDoc,
   validateLogShieldDocument,
   ValidationError,
@@ -409,6 +415,59 @@ app.get("/api/requests/:id", authenticateRequest, async (req, res, next) => {
 app.post("/api/requests", authenticateRequest, async (req, res, next) => {
   try {
     res.status(201).json(await createRequest(req.body || {}, req.auth));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/ai/quick-request", authenticateRequest, async (req, res, next) => {
+  try {
+    const { posko_id, commodity, quantity, unit, priority, note } = req.body || {};
+    if (!posko_id || !commodity || !quantity || !unit) {
+      throw new ValidationError("posko_id, commodity, quantity, and unit are required");
+    }
+    const payload = {
+      posko_id,
+      status: "menunggu",
+      priority: priority || "normal",
+      items: [{ commodity, quantity: Number(quantity), unit, note: note || "" }],
+    };
+    res.status(201).json(await createRequest(payload, req.auth));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/anomalies", authenticateRequest, async (req, res, next) => {
+  try {
+    res.status(201).json(await createAnomalyReport(req.body || {}, req.auth));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/anomalies", authenticateRequest, async (req, res, next) => {
+  try {
+    const { posko_id, severity, status, limit } = req.query;
+    res.json(await listAnomalyReports({ posko_id, severity, status, limit }));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/anomalies/:id", authenticateRequest, async (req, res, next) => {
+  try {
+    res.json(await getAnomalyReport(req.params.id));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.patch("/api/anomalies/:id/status", authenticateRequest, async (req, res, next) => {
+  try {
+    const { status } = req.body || {};
+    if (!status) throw new ValidationError("status is required");
+    res.json(await updateAnomalyReportStatus(req.params.id, status, req.auth));
   } catch (error) {
     next(error);
   }
