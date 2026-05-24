@@ -73,9 +73,9 @@ function LogisticsRequestCard({
         </div>
         <Button
           type="button"
-          variant={request.action_disabled ? "outline" : "primary"}
+          variant={request.status === "diproses" ? "primary" : request.action_disabled ? "outline" : "primary"}
           size="md"
-          disabled={request.action_disabled}
+          disabled={request.status === "selesai"}
           onClick={() => {
             if (request.status === "diproses") {
               onAction(request.id, "complete");
@@ -84,7 +84,7 @@ function LogisticsRequestCard({
             }
           }}
         >
-          {request.action_label}
+          {request.status === "diproses" ? "Selesaikan" : request.status === "selesai" ? "Selesai" : "Proses Request"}
         </Button>
       </div>
     </div>

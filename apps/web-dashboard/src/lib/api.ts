@@ -272,6 +272,7 @@ export interface StockSummary {
 }
 
 export interface StockItem {
+  _id: string;
   commodity: string;
   quantity_available: number;
   unit: string;

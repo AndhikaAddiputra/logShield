@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Shield, User, Lock, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
 import { API_BASE_URL } from '../lib/api';
+import logoWhite from "../../assets/logo-white.svg";
 
 export default function LoginPage({ onNavigate }: { onNavigate: (page: string) => void }) {
   const [identifier, setIdentifier] = useState('');
@@ -35,8 +36,8 @@ export default function LoginPage({ onNavigate }: { onNavigate: (page: string) =
   return (
     <div className="flex flex-col h-screen bg-blue-900 p-6 justify-center">
       <div className="flex flex-col items-center mb-12">
-        <div className="bg-white p-4 rounded-2xl mb-4 shadow-lg">
-          <Shield className="w-12 h-12 text-blue-900" />
+        <div className="p-4 rounded-2xl mb-4 shadow-lg">
+          <img src={logoWhite} alt="Log-Shield" className="w-16 h-16" />
         </div>
         <h1 className="text-3xl font-black text-white tracking-widest uppercase">Log-Shield</h1>
         <p className="text-blue-200 text-sm mt-2 text-center">Sistem Manajemen Logistik Kemanusiaan</p>

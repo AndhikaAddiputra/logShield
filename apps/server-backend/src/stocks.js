@@ -177,6 +177,7 @@ function normalizeAddStockInput(input = {}) {
 
 function toCategoryItem(asset) {
   return {
+    _id: asset._id,
     commodity: asset.commodity,
     quantity_available: asset.quantity_available,
     unit: asset.unit,
@@ -184,6 +185,23 @@ function toCategoryItem(asset) {
     is_critical: isCritical(asset),
     progress: stockProgress(asset),
   };
+}
+
+export async function deleteAsset(id) {
+  let doc;
+  try {
+    doc = await getDocument(id);
+  } catch (error) {
+    if (error.statusCode === 404) {
+      throw new ValidationError(`Asset tidak ditemukan: ${id}`);
+    }
+    throw error;
+  }
+  if (doc.type !== "asset") {
+    throw new ValidationError("Document is not an asset");
+  }
+  await putExistingDocument({ ...doc, _deleted: true });
+  return { ok: true };
 }
 
 function isCritical(asset) {
@@ -241,15 +259,6 @@ export async function updateAsset(id, input = {}, now = new Date()) {
     ok: true,
     asset: { ...doc, _rev: result.rev },
   };
-}
-
-export async function deleteAsset(id) {
-  const doc = await getDocument(id);
-  if (doc.type !== "asset") {
-    throw new ValidationError("Document is not an asset");
-  }
-  await putExistingDocument({ ...doc, _deleted: true });
-  return { ok: true };
 }
 
 function isoDate(date) {

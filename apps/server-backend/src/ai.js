@@ -428,12 +428,13 @@ export async function inferPoskoCommodities(poskoId) {
     items_analyzed: results.length,
     items: results,
     results: results.map((r) => {
-      const fc = r.recommendation?.top_recommendation?.forecast_target_need_qty || recalcForecastQty(r.commodity, totalPengungsi || 0, vulnerableCount || 0, 0, r.critical_threshold || 0);
+      const tp = posko.total_pengungsi || 0;
+      const fc = r.recommendation?.top_recommendation?.forecast_target_need_qty || recalcForecastQty(r.commodity, tp, vulnerableCount || 0, 0, r.critical_threshold || 0);
       const spec = getCommoditySpec(r.commodity);
       const trend = computeTrendAnalysis(requests, poskoId, r.commodity);
       const att = computeDataAttribution({
         trend,
-        vulnerableRatio: (vulnerableCount || 0) / Math.max(totalPengungsi || 1, 1),
+        vulnerableRatio: (vulnerableCount || 0) / Math.max(tp, 1),
         coverageDays: r.recommendation?.top_recommendation?.coverage_days || 99,
         shortage: r.recommendation?.top_recommendation?.shortage_qty || 0,
         forecastQty: fc,

@@ -26,8 +26,8 @@ const STATUS_META = {
   diproses: {
     label: "Diproses",
     color: "success",
-    action_label: "Sedang Diproses",
-    action_disabled: true,
+    action_label: "Selesaikan",
+    action_disabled: false,
   },
   selesai: {
     label: "Selesai",

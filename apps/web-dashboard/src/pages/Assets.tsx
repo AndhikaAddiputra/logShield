@@ -62,6 +62,7 @@ function StockRow({
   isCritical,
   category,
   threshold,
+  assetId,
   onEdit,
   onDelete,
 }: {
@@ -72,8 +73,9 @@ function StockRow({
   isCritical: boolean;
   category: string;
   threshold: number;
+  assetId: string;
   onEdit: (commodity: string, category: string, unit: string, threshold: number) => void;
-  onDelete: (commodity: string) => void;
+  onDelete: (id: string) => void;
 }) {
   return (
     <div className="flex items-center justify-between gap-2">
@@ -100,7 +102,7 @@ function StockRow({
           Edit
         </button>
         <button
-          onClick={() => onDelete(name)}
+          onClick={() => onDelete(assetId)}
           className="text-[10px] font-semibold text-red-600 hover:text-red-800 px-2 py-1 rounded hover:bg-red-50"
         >
           Hapus
@@ -128,10 +130,10 @@ function CategoryCard({
   accent: string;
   accentBg: string;
   category: string;
-  items: { commodity: string; quantity_available: number; unit: string; min_threshold: number; is_critical: boolean; progress: number }[];
+  items: { _id: string; commodity: string; quantity_available: number; unit: string; min_threshold: number; is_critical: boolean; progress: number }[];
   onAddStock: (category: string) => void;
   onEdit: (commodity: string, category: string, unit: string, threshold: number) => void;
-  onDelete: (commodity: string) => void;
+  onDelete: (id: string) => void;
 }) {
   const criticalItems = items.filter((i) => i.is_critical);
 
@@ -158,7 +160,7 @@ function CategoryCard({
         <div className="space-y-3">
           {items.map((item) => (
             <StockRow
-              key={item.commodity}
+              key={item._id || item.commodity}
               name={item.commodity}
               stock={item.quantity_available}
               unit={item.unit}
@@ -166,6 +168,7 @@ function CategoryCard({
               isCritical={item.is_critical}
               category={category}
               threshold={item.min_threshold}
+              assetId={item._id || `asset::WH-JKT-001::${item.commodity}`}
               onEdit={onEdit}
               onDelete={onDelete}
             />
@@ -298,7 +301,8 @@ export function AssetsPage() {
   };
 
   const openEdit = (commodity: string, category: string, unit: string, threshold: number) => {
-    setEditId(`asset::WH-JKT-001::${commodity}`);
+    const item = categories.flatMap((c) => c.items).find((i) => i.commodity === commodity);
+    setEditId(item?._id || `asset::WH-JKT-001::${commodity}`);
     setEditCommodity(commodity);
     setEditCategory(category);
     setEditUnit(unit);
@@ -319,9 +323,11 @@ export function AssetsPage() {
     }
   };
 
-  const openDelete = (commodity: string) => {
-    setDeleteId(`asset::WH-JKT-001::${commodity}`);
-    setDeleteName(commodity);
+  const openDelete = (id: string) => {
+    setDeleteId(id);
+    const parts = id.split("::");
+    const name = parts.length > 1 ? parts[parts.length - 1] : id;
+    setDeleteName(name);
     setShowDelete(true);
   };
 
