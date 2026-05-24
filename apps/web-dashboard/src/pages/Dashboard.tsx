@@ -227,7 +227,7 @@ export function DashboardPage() {
           <StatCard
             label="AI Health"
             value={cards?.ai_health || "-"}
-            tone={cards?.ai_status === "healthy" ? "success" : "danger"}
+            tone={cards?.ai_status === "Stable" ? "success" : "danger"}
             icon={Sparkles}
           />
         </div>

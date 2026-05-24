@@ -600,12 +600,12 @@ const NAME_ALIASES = {
 };
 
 function normalizeItemName(name) {
-  const raw = String(name).trim().toLowerCase().replace(/[-\s]/g, "_").replace(/[^a-z0-9_]/g, "");
+  const raw = String(name).trim().toLowerCase().replace(/[-\s]+/g, "_").replace(/[^a-z0-9_]/g, "");
   return NAME_ALIASES[raw] || raw;
 }
 
 function getCommoditySpec(commodity) {
-  return COMMODITY_SPECS[normalizeItemName(commodity)];
+  return COMMODITY_SPECS[normalizeItemName(commodity)] || null;
 }
 
 function recalcForecastQty(commodity, totalPengungsi, vulnerableCount, requestedQty = 0, criticalThreshold = 0) {
@@ -838,3 +838,15 @@ function computeDataAttribution({ trend, vulnerableRatio, coverageDays, shortage
 function round2(v) {
   return Math.round(v * 100) / 100;
 }
+
+export {
+  COMMODITY_SPECS,
+  NAME_ALIASES,
+  normalizeItemName,
+  getCommoditySpec,
+  recalcForecastQty,
+  buildRecommendationChips,
+  computeTrendAnalysis,
+  computeDataAttribution,
+  round2,
+};
