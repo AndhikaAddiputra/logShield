@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { RefreshCw, Utensils, Shirt, Tent, ChevronRight, Activity, Loader2, Users, FileText, Edit3, Check, X, ShoppingCart, AlertTriangle } from 'lucide-react';
+import { RefreshCw, Utensils, Shirt, Tent, ChevronRight, Activity, Loader2, Users, Edit3, Check, X, ShoppingCart, AlertTriangle } from 'lucide-react';
 import { API_BASE_URL, getAuthHeaders } from '../lib/api';
 
 const RISK_STYLES: Record<string, string> = {
