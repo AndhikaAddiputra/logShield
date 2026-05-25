@@ -74,6 +74,16 @@ export async function getRequestById(id) {
 
 export async function createRequest(input, actor, now = new Date()) {
   const payload = normalizeCreateInput(input);
+  const existing = await findExistingByClientMutation(payload.client_mutation_id);
+  if (existing) {
+    const posko = await getOptionalPosko(existing.posko_id);
+    return {
+      ok: true,
+      idempotent: true,
+      request: existing,
+      card: toRequestCard(existing, posko),
+    };
+  }
   await assertPoskoExists(payload.posko_id);
   const requestCode = await nextRequestCode(now);
   const doc = createRequestDoc({
@@ -84,6 +94,7 @@ export async function createRequest(input, actor, now = new Date()) {
     status: payload.status,
     priority: payload.priority,
   }, now);
+  applySyncMetadata(doc, payload);
 
   const result = await putDocument(doc);
   const saved = { ...doc, _rev: result.rev };
@@ -210,11 +221,22 @@ export async function patchRequest(id, input, actor, now = new Date()) {
   if (doc.status === "selesai") {
     throw new RequestError("Completed requests cannot be updated", 409);
   }
+  if (shouldSkipStaleClientUpdate(doc, input.client_updated_at)) {
+    const posko = await getOptionalPosko(doc.posko_id);
+    return {
+      ok: true,
+      skipped: true,
+      conflict_resolution: "last_write_wins",
+      request: doc,
+      card: toRequestCard(doc, posko),
+    };
+  }
 
   const next = {
     ...doc,
-    updated_at: now.toISOString(),
+    updated_at: input.client_updated_at || now.toISOString(),
   };
+  applySyncMetadata(next, input);
 
   if (input.status !== undefined) {
     next.status = enumString(input.status, REQUEST_STATUSES, "status");
@@ -310,6 +332,9 @@ function normalizeCreateInput(input = {}) {
     priority: input.priority === undefined
       ? "normal"
       : enumString(input.priority, REQUEST_PRIORITIES, "priority"),
+    client_mutation_id: optionalStringValue(input.client_mutation_id),
+    client_updated_at: optionalIsoString(input.client_updated_at, "client_updated_at"),
+    sync_source: optionalStringValue(input.sync_source),
   };
 }
 
@@ -435,6 +460,48 @@ function optionalString(value, field) {
     throw new ValidationError(`${field} must be a string`);
   }
   return value.trim();
+}
+
+function optionalStringValue(value) {
+  if (value === undefined || value === null || value === "") return undefined;
+  if (typeof value !== "string") {
+    throw new ValidationError("client metadata must be a string");
+  }
+  return value.trim();
+}
+
+function optionalIsoString(value, field) {
+  if (value === undefined || value === null || value === "") return undefined;
+  const text = optionalString(value, field);
+  if (Number.isNaN(Date.parse(text))) {
+    throw new ValidationError(`${field} must be an ISO timestamp`);
+  }
+  return text;
+}
+
+function applySyncMetadata(doc, input = {}) {
+  if (input.client_mutation_id) doc.client_mutation_id = input.client_mutation_id;
+  if (input.client_updated_at) {
+    doc.client_updated_at = input.client_updated_at;
+    doc.updated_at = input.client_updated_at;
+  }
+  if (input.sync_source) doc.sync_source = input.sync_source;
+}
+
+async function findExistingByClientMutation(clientMutationId) {
+  if (!clientMutationId) return null;
+  const result = await findDocuments(
+    { type: "request", client_mutation_id: clientMutationId },
+    { limit: 1 }
+  );
+  return result.docs?.[0] || null;
+}
+
+function shouldSkipStaleClientUpdate(doc, clientUpdatedAt) {
+  if (!clientUpdatedAt) return false;
+  const clientTime = Date.parse(clientUpdatedAt);
+  const serverTime = Date.parse(doc.updated_at || doc.created_at || 0);
+  return Number.isFinite(clientTime) && Number.isFinite(serverTime) && clientTime < serverTime;
 }
 
 function enumString(value, values, field) {

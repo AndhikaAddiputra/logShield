@@ -1,11 +1,16 @@
 import { useEffect, useState } from 'react';
 import { FileText, Loader2, Info } from 'lucide-react';
 import { API_BASE_URL, getAuthHeaders } from '../lib/api';
+import { cacheValue, getCachedValue, isOfflineMode, listLocalRequestCards, noteNetworkFailure, noteNetworkSuccess } from '../lib/offlineOutbox';
+import { useSyncStore } from '../store/syncStore';
+import { useOnlineStatus } from '../hooks/useOnlineStatus';
 
 export default function LogisticsPage({ onNavigate }: { onNavigate: (page: string) => void }) {
   const [requests, setRequests] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [userPoskoId, setUserPoskoId] = useState<string | null>(null);
+  const { pendingOutbox, failedOutbox } = useSyncStore();
+  const online = useOnlineStatus();
 
   useEffect(() => {
     const stored = localStorage.getItem('logshield_user');
@@ -22,15 +27,27 @@ export default function LogisticsPage({ onNavigate }: { onNavigate: (page: strin
 
     const fetchRequests = async () => {
       try {
+        const localPending = await listLocalRequestCards(userPoskoId);
+        if (!online || isOfflineMode()) {
+          const cached = await getCachedValue<any[]>(`requests:${userPoskoId}`);
+          setRequests([...localPending, ...(cached || [])]);
+          return;
+        }
         const res = await fetch(`${API_BASE_URL}/api/requests?limit=50`, {
           headers: getAuthHeaders()
         });
         if (!res.ok) throw new Error("Gagal load request");
+        noteNetworkSuccess();
         const data = await res.json();
         const all = data.rows || data;
         const filtered = all.filter((r: any) => r.posko_id === userPoskoId);
-        setRequests(filtered);
+        await cacheValue(`requests:${userPoskoId}`, filtered);
+        setRequests([...localPending, ...filtered]);
       } catch (err) {
+        const localPending = await listLocalRequestCards(userPoskoId);
+        noteNetworkFailure();
+        const cached = await getCachedValue<any[]>(`requests:${userPoskoId}`);
+        setRequests([...localPending, ...(cached || [])]);
         console.error(err);
       } finally {
         setIsLoading(false);
@@ -38,7 +55,7 @@ export default function LogisticsPage({ onNavigate }: { onNavigate: (page: strin
     };
 
     fetchRequests();
-  }, [userPoskoId]);
+  }, [userPoskoId, pendingOutbox, failedOutbox, online]);
 
   const getStatusColor = (color: string) => {
     switch (color) {

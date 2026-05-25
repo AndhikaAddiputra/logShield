@@ -422,7 +422,7 @@ app.post("/api/requests", authenticateRequest, async (req, res, next) => {
 
 app.post("/api/ai/quick-request", authenticateRequest, async (req, res, next) => {
   try {
-    const { posko_id, commodity, quantity, unit, priority, note } = req.body || {};
+    const { posko_id, commodity, quantity, unit, priority, note, client_mutation_id, client_updated_at, sync_source } = req.body || {};
     if (!posko_id || !commodity || !quantity || !unit) {
       throw new ValidationError("posko_id, commodity, quantity, and unit are required");
     }
@@ -431,6 +431,9 @@ app.post("/api/ai/quick-request", authenticateRequest, async (req, res, next) =>
       status: "menunggu",
       priority: priority || "normal",
       items: [{ commodity, quantity: Number(quantity), unit, note: note || "" }],
+      client_mutation_id,
+      client_updated_at,
+      sync_source,
     };
     res.status(201).json(await createRequest(payload, req.auth));
   } catch (error) {

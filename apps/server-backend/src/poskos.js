@@ -176,6 +176,14 @@ export async function updatePosko(id, input) {
   if (!doc || doc.type !== "posko") {
     throw new ValidationError("Posko not found");
   }
+  if (shouldSkipStaleClientUpdate(doc, input?.client_updated_at)) {
+    return {
+      ok: true,
+      skipped: true,
+      conflict_resolution: "last_write_wins",
+      posko: toPoskoResponse(doc),
+    };
+  }
   const allowedFields = [
     "kib_16", "name", "address", "district", "province",
     "total_pengungsi", "count_balita", "count_lansia",
@@ -191,8 +199,28 @@ export async function updatePosko(id, input) {
   const updated = {
     ...doc,
     ...updates,
-    updated_at: new Date().toISOString(),
+    updated_at: input?.client_updated_at || new Date().toISOString(),
   };
+  applySyncMetadata(updated, input);
   const result = await putDocument(updated);
   return { ok: true, posko: toPoskoResponse({ ...updated, _rev: result.rev }) };
+}
+
+function applySyncMetadata(doc, input = {}) {
+  if (typeof input.client_mutation_id === "string" && input.client_mutation_id.trim()) {
+    doc.client_mutation_id = input.client_mutation_id.trim();
+  }
+  if (typeof input.client_updated_at === "string" && input.client_updated_at.trim()) {
+    doc.client_updated_at = input.client_updated_at.trim();
+  }
+  if (typeof input.sync_source === "string" && input.sync_source.trim()) {
+    doc.sync_source = input.sync_source.trim();
+  }
+}
+
+function shouldSkipStaleClientUpdate(doc, clientUpdatedAt) {
+  if (!clientUpdatedAt) return false;
+  const clientTime = Date.parse(clientUpdatedAt);
+  const serverTime = Date.parse(doc.updated_at || doc.created_at || 0);
+  return Number.isFinite(clientTime) && Number.isFinite(serverTime) && clientTime < serverTime;
 }

@@ -2,6 +2,10 @@ import { createAnomalyReportDoc, ValidationError } from "./document-schema.js";
 import { findDocuments, getDocument, putDocument, putExistingDocument } from "./couchdb.js";
 
 export async function createAnomalyReport(input, actor, now = new Date()) {
+  const existing = await findExistingByClientMutation(input.client_mutation_id);
+  if (existing) {
+    return { ok: true, idempotent: true, report: existing };
+  }
   const doc = createAnomalyReportDoc({
     posko_id: input.posko_id,
     commodity: input.commodity,
@@ -11,6 +15,7 @@ export async function createAnomalyReport(input, actor, now = new Date()) {
     description: input.description || "",
     location: input.location || "",
   }, now);
+  applySyncMetadata(doc, input);
   const result = await putDocument(doc);
   return { ok: true, report: { ...doc, _rev: result.rev } };
 }
@@ -43,4 +48,26 @@ export async function updateAnomalyReportStatus(id, status, actor, now = new Dat
   if (status === "resolved") doc.resolved_by = actor.user_id;
   const result = await putExistingDocument(doc);
   return { ok: true, report: { ...doc, _rev: result.rev } };
+}
+
+async function findExistingByClientMutation(clientMutationId) {
+  if (!clientMutationId) return null;
+  const result = await findDocuments(
+    { type: "anomaly_report", client_mutation_id: clientMutationId },
+    { limit: 1 }
+  );
+  return result.docs?.[0] || null;
+}
+
+function applySyncMetadata(doc, input = {}) {
+  if (typeof input.client_mutation_id === "string" && input.client_mutation_id.trim()) {
+    doc.client_mutation_id = input.client_mutation_id.trim();
+  }
+  if (typeof input.client_updated_at === "string" && input.client_updated_at.trim()) {
+    doc.client_updated_at = input.client_updated_at.trim();
+    doc.updated_at = input.client_updated_at.trim();
+  }
+  if (typeof input.sync_source === "string" && input.sync_source.trim()) {
+    doc.sync_source = input.sync_source.trim();
+  }
 }

@@ -1,8 +1,11 @@
-import { Menu, CloudOff, LayoutDashboard, Package, User } from 'lucide-react';
+import { Menu, Cloud, CloudOff, LayoutDashboard, Package, RefreshCw, User } from 'lucide-react';
 import DashboardPage from './DashboardPage';
 import LogisticsPage from './LogisticsPage';
 import ProfilePage from './ProfilePage';
 import RequestPage from './RequestPage';
+import { useOnlineStatus } from '../hooks/useOnlineStatus';
+import { retryFailedOutbox } from '../lib/offlineOutbox';
+import { useSyncStore } from '../store/syncStore';
 
 interface AppLayoutProps {
   currentPage: string;
@@ -10,6 +13,16 @@ interface AppLayoutProps {
 }
 
 export default function AppLayout({ currentPage, onNavigate }: AppLayoutProps) {
+  const online = useOnlineStatus();
+  const { pendingOutbox, failedOutbox } = useSyncStore();
+  const syncLabel = failedOutbox > 0
+    ? `${failedOutbox} GAGAL`
+    : pendingOutbox > 0
+      ? `${pendingOutbox} MENUNGGU`
+      : online
+        ? 'ONLINE'
+        : 'OFFLINE';
+
   return (
     <div className="flex flex-col h-screen max-w-md mx-auto bg-gray-50 font-sans">
       {/* Header Utama */}
@@ -18,10 +31,16 @@ export default function AppLayout({ currentPage, onNavigate }: AppLayoutProps) {
           <Menu className="w-6 h-6 text-blue-900" />
           <h1 className="text-xl font-bold text-blue-900 tracking-wider">LOG-SHIELD</h1>
         </div>
-        <div className="flex items-center gap-2 px-2 py-1 bg-gray-100 rounded-md text-xs font-semibold text-gray-600">
-          <CloudOff className="w-4 h-4" />
-          <span>OFFLINE</span>
-        </div>
+        <button
+          type="button"
+          onClick={() => { if (failedOutbox > 0) void retryFailedOutbox(); }}
+          className={`flex items-center gap-2 px-2 py-1 rounded-md text-xs font-semibold ${
+            failedOutbox > 0 ? 'bg-red-100 text-red-700' : pendingOutbox > 0 ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'
+          }`}
+        >
+          {failedOutbox > 0 ? <RefreshCw className="w-4 h-4" /> : online ? <Cloud className="w-4 h-4" /> : <CloudOff className="w-4 h-4" />}
+          <span>{syncLabel}</span>
+        </button>
       </header>
 
       {/* Area Konten Dinamis */}

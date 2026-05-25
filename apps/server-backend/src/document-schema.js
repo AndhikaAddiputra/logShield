@@ -36,6 +36,8 @@ export const INDEX_FIELDS = [
   "forecast_date",
   "date",
   "notifications",
+  "client_mutation_id",
+  "client_updated_at",
 ];
 
 const userRoles = ["admin", "koordinator", "lapangan"];
