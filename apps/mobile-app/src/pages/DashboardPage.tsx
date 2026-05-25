@@ -1,6 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { RefreshCw, Utensils, Shirt, Tent, ChevronRight, Activity, Loader2, Users, Edit3, Check, X, ShoppingCart, AlertTriangle } from 'lucide-react';
 import { API_BASE_URL, getAuthHeaders } from '../lib/api';
+import { cacheValue, getCachedValue, isOfflineMode, noteNetworkFailure, noteNetworkSuccess, sendJsonWithOfflineFallback } from '../lib/offlineOutbox';
+import { useOnlineStatus } from '../hooks/useOnlineStatus';
+import { useSyncStore } from '../store/syncStore';
 
 const RISK_STYLES: Record<string, string> = {
   kritis: 'bg-red-100 text-red-700',
@@ -9,6 +12,8 @@ const RISK_STYLES: Record<string, string> = {
 };
 
 export default function DashboardPage() {
+  const online = useOnlineStatus();
+  const { pendingOutbox, failedOutbox } = useSyncStore();
   const [selectedSector, setSelectedSector] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [aiData, setAiData] = useState<any>({ pangan: [], sandang: [], papan: [], lainnya: [] });
@@ -49,34 +54,60 @@ export default function DashboardPage() {
     inferenceAttemptedRef.current = false;
   }, [userPoskoId]);
 
+  const applyPoskoSnapshot = useCallback((doc: any) => {
+    setPoskoData(doc);
+    setDemografiForm({
+      pria: doc.count_pria || 0,
+      wanita: doc.count_perempuan || 0,
+      lansia: doc.count_lansia || 0,
+      balita: doc.count_balita || 0,
+      disabilitas: doc.count_disabilitas || 0,
+    });
+  }, []);
+
+  const fetchPosko = useCallback(async () => {
+    if (!userPoskoId) return;
+    try {
+      if (!online || isOfflineMode()) {
+        const cached = await getCachedValue<any>(`posko:${userPoskoId}`);
+        if (cached) applyPoskoSnapshot(cached);
+        return;
+      }
+      const res = await fetch(`${API_BASE_URL}/api/poskos`, { headers: getAuthHeaders() });
+      if (!res.ok) return;
+      noteNetworkSuccess();
+      const data = await res.json();
+      const rows = data.rows || [];
+      const found = rows.find((r: any) => {
+        const doc = r.doc || r;
+        return doc._id === userPoskoId || doc._id === `posko::${userPoskoId}`;
+      });
+      if (found) {
+        const doc = found.doc || found;
+        await cacheValue(`posko:${userPoskoId}`, doc);
+        applyPoskoSnapshot(doc);
+      }
+    } catch {
+      noteNetworkFailure();
+      const cached = await getCachedValue<any>(`posko:${userPoskoId}`);
+      if (cached) applyPoskoSnapshot(cached);
+    }
+  }, [applyPoskoSnapshot, online, userPoskoId]);
+
   useEffect(() => {
     if (!userPoskoId) return;
-
-    const fetchPosko = async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/poskos`, { headers: getAuthHeaders() });
-        if (!res.ok) return;
-        const data = await res.json();
-        const rows = data.rows || [];
-        const found = rows.find((r: any) => {
-          const doc = r.doc || r;
-          return doc._id === userPoskoId || doc._id === `posko::${userPoskoId}`;
-        });
-        if (found) {
-          const doc = found.doc || found;
-          setPoskoData(doc);
-          setDemografiForm({
-            pria: doc.count_pria || 0,
-            wanita: doc.count_perempuan || 0,
-            lansia: doc.count_lansia || 0,
-            balita: doc.count_balita || 0,
-            disabilitas: doc.count_disabilitas || 0,
-          });
-        }
-      } catch {}
-    };
     fetchPosko();
-  }, [userPoskoId]);
+  }, [fetchPosko, userPoskoId, online, pendingOutbox]);
+
+  useEffect(() => {
+    const handleCacheUpdate = (event: Event) => {
+      const poskoId = (event as CustomEvent<{ poskoId?: string }>).detail?.poskoId;
+      if (!poskoId || poskoId !== userPoskoId) return;
+      void fetchPosko();
+    };
+    window.addEventListener("logshield-posko-cache-updated", handleCacheUpdate);
+    return () => window.removeEventListener("logshield-posko-cache-updated", handleCacheUpdate);
+  }, [fetchPosko, userPoskoId]);
 
   const fetchAI = async () => {
     try {
@@ -86,10 +117,17 @@ export default function DashboardPage() {
       const rawPoskoId = normalizedPoskoId.replace(/^posko::/, '');
       const params = new URLSearchParams({ limit: '200' });
       if (normalizedPoskoId) params.set('posko_id', normalizedPoskoId);
+      if (!online || isOfflineMode()) {
+        const cached = await getCachedValue<any>(`ai-top-critical:${normalizedPoskoId}`);
+        setAiData(cached || { pangan: [], sandang: [], papan: [], lainnya: [] });
+        setIsLoading(false);
+        return;
+      }
       const res = await fetch(`${API_BASE_URL}/api/ai/recommendations/top-critical?${params.toString()}`, {
         headers: getAuthHeaders()
       });
       if (!res.ok) throw new Error("Gagal mengambil data AI");
+      noteNetworkSuccess();
       const data = await res.json();
       const rawItems = data.rows || data || [];
       if (!normalizedPoskoId) {
@@ -134,8 +172,15 @@ export default function DashboardPage() {
           grouped.lainnya.push(item);
         }
       });
+      await cacheValue(`ai-top-critical:${normalizedPoskoId}`, grouped);
       setAiData(grouped);
     } catch (err) {
+      noteNetworkFailure();
+      const normalizedPoskoId = userPoskoId
+        ? (userPoskoId.startsWith('posko::') ? userPoskoId : `posko::${userPoskoId}`)
+        : '';
+      const cached = await getCachedValue<any>(`ai-top-critical:${normalizedPoskoId}`);
+      setAiData(cached || { pangan: [], sandang: [], papan: [], lainnya: [] });
       console.error(err);
     } finally {
       setIsLoading(false);
@@ -146,7 +191,7 @@ export default function DashboardPage() {
     if (userPoskoId) {
       fetchAI();
     }
-  }, [userPoskoId]);
+  }, [userPoskoId, online]);
 
   const handleSaveDemografi = async () => {
     if (!userPoskoId) return;
@@ -154,32 +199,50 @@ export default function DashboardPage() {
     setDemografiMessage(null);
     try {
       const total = demografiForm.pria + demografiForm.wanita + demografiForm.lansia + demografiForm.balita + demografiForm.disabilitas;
-      const res = await fetch(`${API_BASE_URL}/api/poskos/${userPoskoId}`, {
-        method: 'PATCH',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
-          count_pria: demografiForm.pria,
-          count_perempuan: demografiForm.wanita,
-          count_lansia: demografiForm.lansia,
-          count_balita: demografiForm.balita,
-          count_disabilitas: demografiForm.disabilitas,
-          total_pengungsi: total,
-        }),
-      });
-      if (!res.ok) throw new Error('Gagal menyimpan');
-      setPoskoData((prev: any) => prev ? ({
-        ...prev,
+      const optimisticPosko = {
+        ...(poskoData || {}),
         count_pria: demografiForm.pria,
         count_perempuan: demografiForm.wanita,
         count_lansia: demografiForm.lansia,
         count_balita: demografiForm.balita,
         count_disabilitas: demografiForm.disabilitas,
         total_pengungsi: total,
-      }) : prev);
+        updated_at: new Date().toISOString(),
+      };
+      await cacheValue(`posko:${userPoskoId}`, optimisticPosko);
+      applyPoskoSnapshot(optimisticPosko);
+
+      const result = await sendJsonWithOfflineFallback({
+        method: 'PATCH',
+        endpoint: `/api/poskos/${encodeURIComponent(userPoskoId)}`,
+        payload: {
+          count_pria: demografiForm.pria,
+          count_perempuan: demografiForm.wanita,
+          count_lansia: demografiForm.lansia,
+          count_balita: demografiForm.balita,
+          count_disabilitas: demografiForm.disabilitas,
+          total_pengungsi: total,
+        },
+      });
+      const responsePosko = !result.queued && result.data && typeof result.data === 'object'
+        ? (result.data as { posko?: any }).posko
+        : null;
+      const updatedPosko = responsePosko || {
+        ...optimisticPosko,
+        count_pria: demografiForm.pria,
+        count_perempuan: demografiForm.wanita,
+        count_lansia: demografiForm.lansia,
+        count_balita: demografiForm.balita,
+        count_disabilitas: demografiForm.disabilitas,
+        total_pengungsi: total,
+        updated_at: result.mutation.payload.client_updated_at,
+      };
+      await cacheValue(`posko:${userPoskoId}`, updatedPosko);
+      applyPoskoSnapshot(updatedPosko);
       setEditingDemografi(false);
-      setDemografiMessage('Data pengungsi tersimpan.');
+      setDemografiMessage(result.queued ? 'Data pengungsi disimpan offline.' : 'Data pengungsi tersimpan.');
       setTimeout(() => setDemografiMessage(null), 3000);
-      fetchAI();
+      if (!result.queued) fetchAI();
     } catch (err: any) {
       setDemografiMessage(err.message || 'Gagal menyimpan');
     } finally {
@@ -191,25 +254,31 @@ export default function DashboardPage() {
     if (!requestingItem || !userPoskoId || reqQty <= 0) return;
     setReqLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/ai/quick-request`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
+      const payload = {
           posko_id: userPoskoId,
           commodity: requestingItem.item_name,
           quantity: reqQty,
           unit: requestingItem.unit || 'unit',
           priority: reqPriority,
           note: `Permintaan cepat dari rekomendasi AI: ${requestingItem.item_name}`,
-        }),
+      };
+      const result = await sendJsonWithOfflineFallback({
+        method: 'POST',
+        endpoint: '/api/ai/quick-request',
+        payload,
+        localRequest: {
+          posko_id: userPoskoId,
+          items: [{
+            commodity: payload.commodity,
+            quantity: payload.quantity,
+            unit: payload.unit,
+            note: payload.note,
+          }],
+        },
       });
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.message || 'Gagal mengirim permintaan');
-      }
       setRequestingItem(null);
-      alert('Permintaan berhasil dikirim!');
-      fetchAI();
+      alert(result.queued ? 'Permintaan disimpan offline. Akan disinkronkan saat online.' : 'Permintaan berhasil dikirim!');
+      if (!result.queued) fetchAI();
     } catch (err: any) {
       alert('Error: ' + err.message);
     } finally {
@@ -221,21 +290,17 @@ export default function DashboardPage() {
     if (!userPoskoId || !aCommodity.trim()) return;
     setALoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/anomalies`, {
+      const result = await sendJsonWithOfflineFallback({
         method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
+        endpoint: '/api/anomalies',
+        payload: {
           posko_id: userPoskoId,
           commodity: aCommodity.trim(),
           severity: aSeverity,
           description: aDescription.trim(),
           location: aLocation.trim(),
-        }),
+        },
       });
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.message || 'Gagal mengirim laporan');
-      }
       setACommodity('');
       setASeverity('medium');
       setADescription('');
@@ -243,6 +308,9 @@ export default function DashboardPage() {
       setShowAnomalyForm(false);
       setADone(true);
       setTimeout(() => setADone(false), 3000);
+      if (result.queued) {
+        alert('Laporan disimpan offline. Akan disinkronkan saat online.');
+      }
     } catch (err: any) {
       alert('Error: ' + err.message);
     } finally {
@@ -382,10 +450,18 @@ export default function DashboardPage() {
 
   const totalPengungsi = (poskoData?.count_pria || 0) + (poskoData?.count_perempuan || 0) + (poskoData?.count_lansia || 0) + (poskoData?.count_balita || 0) + (poskoData?.count_disabilitas || 0);
 
+  const syncBannerText = failedOutbox > 0
+    ? `${failedOutbox} AKSI GAGAL SINKRON`
+    : pendingOutbox > 0
+      ? `${pendingOutbox} AKSI MENUNGGU SINKRON`
+      : online
+        ? 'TERHUBUNG · SINKRON'
+        : 'OFFLINE · DATA LOKAL';
+
   return (
     <div className="flex flex-col w-full">
       <div className="bg-green-700 text-white px-4 py-2 flex justify-between items-center text-xs font-bold tracking-wide">
-        <div className="flex items-center gap-2"><RefreshCw className="w-4 h-4" /><span>TERHUBUNG · SINKRON</span></div>
+        <div className="flex items-center gap-2"><RefreshCw className="w-4 h-4" /><span>{syncBannerText}</span></div>
         <div className="w-2 h-2 bg-white rounded-full" />
       </div>
 

@@ -33,3 +33,5 @@ android/
 ios/
 *.egg-info/
 .eggs/
+.pio/
+.pio-venv/

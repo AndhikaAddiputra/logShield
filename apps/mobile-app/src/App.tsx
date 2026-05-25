@@ -3,11 +3,16 @@ import AppLayout from './pages/AppLayout';
 import LoginPage from './pages/LoginPage';
 import PoskoInitPage from './pages/InitPage';
 import { createLocalDb, startCouchReplication } from './lib/pouch';
+import { startOutboxReplay } from './lib/offlineOutbox';
 import { useSyncStore } from './store/syncStore';
 import { SplashScreen } from './components/SplashScreen';
 
 export default function App() {
-  const [currentPage, setCurrentPage] = useState('login');
+  const [currentPage, setCurrentPage] = useState(() => {
+    return localStorage.getItem('logshield_token') && localStorage.getItem('logshield_user')
+      ? 'dashboard'
+      : 'login';
+  });
   const remoteUrl = import.meta.env.VITE_COUCHDB_URL;
   const [showSplash, setShowSplash] = useState(true);
 
@@ -15,6 +20,7 @@ export default function App() {
     // Database initialization
     const local = createLocalDb();
     let handle: any;
+    const outboxHandle = startOutboxReplay();
 
     if (!remoteUrl) {
       useSyncStore.getState().setFromReplication({
@@ -33,6 +39,7 @@ export default function App() {
 
     return () => {
       if (handle) handle.cancel();
+      outboxHandle.cancel();
       clearTimeout(splashTimer);
     };
   }, [remoteUrl]);

@@ -17,9 +17,14 @@ export async function startMqttIngestion() {
 
   const client = mqtt.connect(config.mqttBrokerUrl);
   client.on("connect", () => {
-    client.subscribe(config.mqttStockTopic, (error) => {
+    const topics = [
+      config.mqttStockTopic,
+      "logshield/warehouse/+/scale/+/reading",
+    ].filter((topic, index, list) => topic && list.indexOf(topic) === index);
+
+    client.subscribe(topics, (error) => {
       if (error) console.error("MQTT subscribe failed", error);
-      else console.log(`MQTT stock ingestion subscribed to ${config.mqttStockTopic}`);
+      else console.log(`MQTT stock ingestion subscribed to ${topics.join(", ")}`);
     });
   });
 

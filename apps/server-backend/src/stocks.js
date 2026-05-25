@@ -245,6 +245,14 @@ export async function updateAsset(id, input = {}, now = new Date()) {
   if (doc.type !== "asset") {
     throw new ValidationError("Document is not an asset");
   }
+  if (shouldSkipStaleClientUpdate(doc, input.client_updated_at)) {
+    return {
+      ok: true,
+      skipped: true,
+      conflict_resolution: "last_write_wins",
+      asset: doc,
+    };
+  }
 
   const ALLOWED_FIELDS = ["category", "commodity", "unit", "min_threshold"];
   for (const [key, value] of Object.entries(input)) {
@@ -259,13 +267,33 @@ export async function updateAsset(id, input = {}, now = new Date()) {
     }
   }
 
-  doc.updated_at = now.toISOString();
+  doc.updated_at = input.client_updated_at || now.toISOString();
+  applySyncMetadata(doc, input);
   validateLogShieldDocument(doc);
   const result = await putExistingDocument(doc);
   return {
     ok: true,
     asset: { ...doc, _rev: result.rev },
   };
+}
+
+function applySyncMetadata(doc, input = {}) {
+  if (typeof input.client_mutation_id === "string" && input.client_mutation_id.trim()) {
+    doc.client_mutation_id = input.client_mutation_id.trim();
+  }
+  if (typeof input.client_updated_at === "string" && input.client_updated_at.trim()) {
+    doc.client_updated_at = input.client_updated_at.trim();
+  }
+  if (typeof input.sync_source === "string" && input.sync_source.trim()) {
+    doc.sync_source = input.sync_source.trim();
+  }
+}
+
+function shouldSkipStaleClientUpdate(doc, clientUpdatedAt) {
+  if (!clientUpdatedAt) return false;
+  const clientTime = Date.parse(clientUpdatedAt);
+  const serverTime = Date.parse(doc.updated_at || doc.created_at || 0);
+  return Number.isFinite(clientTime) && Number.isFinite(serverTime) && clientTime < serverTime;
 }
 
 function isoDate(date) {

@@ -27,7 +27,17 @@ export default function LoginPage({ onNavigate }: { onNavigate: (page: string) =
       localStorage.setItem('logshield_user', JSON.stringify(data.user));
       onNavigate('inisialisasi-posko');
     } catch (err: any) {
-      setError(err.message || 'Terjadi kesalahan. Coba lagi.');
+      const savedToken = localStorage.getItem('logshield_token');
+      const savedUser = localStorage.getItem('logshield_user');
+      if (savedToken && savedUser && typeof navigator !== 'undefined' && !navigator.onLine) {
+        onNavigate('dashboard');
+        return;
+      }
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        setError('Login offline hanya bisa dipakai setelah pernah login online di perangkat ini.');
+      } else {
+        setError(err.message || 'Terjadi kesalahan. Coba lagi.');
+      }
     } finally {
       setLoading(false);
     }

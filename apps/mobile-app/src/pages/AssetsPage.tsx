@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Package, Check, X, Loader2, AlertCircle } from 'lucide-react';
 import { API_BASE_URL, getAuthHeaders } from '../lib/api';
+import { sendJsonWithOfflineFallback } from '../lib/offlineOutbox';
 
 const CATEGORY_OPTIONS = ['pangan', 'sandang', 'papan', 'lainnya'];
 
@@ -68,19 +69,18 @@ export default function AssetsPage() {
       const cat = categories[editingIdx.catIdx];
       const item = cat.items[editingIdx.itemIdx];
       const assetId = `asset::WH-JKT-001::${item.commodity}`;
-      const res = await fetch(`${API_BASE_URL}/api/stocks/${encodeURIComponent(assetId)}`, {
+      const result = await sendJsonWithOfflineFallback({
         method: 'PATCH',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
+        endpoint: `/api/stocks/${encodeURIComponent(assetId)}`,
+        payload: {
           category: editForm.category,
           min_threshold: editForm.min_threshold,
-        }),
+        },
       });
-      if (!res.ok) throw new Error('Gagal menyimpan');
       setEditingIdx(null);
-      setMessage('Tersimpan.');
+      setMessage(result.queued ? 'Disimpan offline.' : 'Tersimpan.');
       setTimeout(() => setMessage(''), 2000);
-      fetchAssets();
+      if (!result.queued) fetchAssets();
     } catch (err: any) {
       setMessage(err.message || 'Gagal menyimpan');
     } finally {

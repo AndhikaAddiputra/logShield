@@ -422,7 +422,7 @@ app.post("/api/requests", authenticateRequest, async (req, res, next) => {
 
 app.post("/api/ai/quick-request", authenticateRequest, async (req, res, next) => {
   try {
-    const { posko_id, commodity, quantity, unit, priority, note } = req.body || {};
+    const { posko_id, commodity, quantity, unit, priority, note, client_mutation_id, client_updated_at, sync_source } = req.body || {};
     if (!posko_id || !commodity || !quantity || !unit) {
       throw new ValidationError("posko_id, commodity, quantity, and unit are required");
     }
@@ -431,6 +431,9 @@ app.post("/api/ai/quick-request", authenticateRequest, async (req, res, next) =>
       status: "menunggu",
       priority: priority || "normal",
       items: [{ commodity, quantity: Number(quantity), unit, note: note || "" }],
+      client_mutation_id,
+      client_updated_at,
+      sync_source,
     };
     res.status(201).json(await createRequest(payload, req.auth));
   } catch (error) {
@@ -540,12 +543,15 @@ app.post("/api/stock-readings", async (req, res, next) => {
 app.get("/api/stock-readings", authenticateRequest, async (req, res, next) => {
   try {
     const { warehouse_id, commodity, node_id, limit: limitParam } = req.query;
-    const selector = { type: "stock_reading" };
+    const selector = { type: "stock_reading", timestamp: { "$exists": true } };
     if (warehouse_id) selector.warehouse_id = warehouse_id;
     if (commodity) selector.commodity = commodity;
     if (node_id) selector.node_id = node_id;
     const safeLimit = Math.max(1, Math.min(Number(limitParam) || 50, 500));
-    const result = await findDocuments(selector, { limit: safeLimit });
+    const result = await findDocuments(selector, {
+      limit: safeLimit,
+      sort: [{ timestamp: "desc" }],
+    });
     const docs = (result.docs || []).sort(
       (a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0)
     );

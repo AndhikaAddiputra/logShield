@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
 import { User, Hash, MapPin, Shield, Loader2, AlertCircle, LogOut } from 'lucide-react';
 import { API_BASE_URL, getAuthHeaders } from '../lib/api';
+import { cacheValue, getCachedValue, isOfflineMode, noteNetworkFailure, noteNetworkSuccess } from '../lib/offlineOutbox';
+import { useOnlineStatus } from '../hooks/useOnlineStatus';
 
 export default function ProfilePage({ onNavigate }: { onNavigate: (page: string) => void }) {
+  const online = useOnlineStatus();
   const [user, setUser] = useState<any>(null);
   const [posko, setPosko] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -15,13 +18,25 @@ export default function ProfilePage({ onNavigate }: { onNavigate: (page: string)
         const userData = stored ? JSON.parse(stored) : null;
         if (!userData) throw new Error('Sesi tidak ditemukan. Silakan login ulang.');
 
+        if (!online || isOfflineMode()) {
+          const cachedProfile = await getCachedValue<any>('settings-profile');
+          const profile = cachedProfile || userData;
+          setUser(profile);
+          if (profile.posko_id) {
+            setPosko(await getCachedValue<any>(`posko:${profile.posko_id}`));
+          }
+          return;
+        }
+
         const res = await fetch(`${API_BASE_URL}/api/settings`, {
           headers: getAuthHeaders(),
         });
         if (!res.ok) throw new Error('Gagal memuat profil');
+        noteNetworkSuccess();
         const settingsData = await res.json();
 
         const profile = settingsData.profile || settingsData.user || userData;
+        await cacheValue('settings-profile', profile);
         setUser(profile);
 
         if (profile.posko_id) {
@@ -35,17 +50,30 @@ export default function ProfilePage({ onNavigate }: { onNavigate: (page: string)
               const doc = r.doc || r;
               return doc._id === profile.posko_id || doc._id === `posko::${profile.posko_id}`;
             });
-            if (found) setPosko(found.doc || found);
+            if (found) {
+              const doc = found.doc || found;
+              await cacheValue(`posko:${profile.posko_id}`, doc);
+              setPosko(doc);
+            }
           }
         }
       } catch (err: any) {
-        setError(err.message || 'Gagal memuat data profil');
+        noteNetworkFailure();
+        const stored = localStorage.getItem('logshield_user');
+        const userData = stored ? JSON.parse(stored) : null;
+        const profile = await getCachedValue<any>('settings-profile') || userData;
+        if (profile) {
+          setUser(profile);
+          if (profile.posko_id) setPosko(await getCachedValue<any>(`posko:${profile.posko_id}`));
+        } else {
+          setError(err.message || 'Gagal memuat data profil');
+        }
       } finally {
         setLoading(false);
       }
     };
     loadProfile();
-  }, []);
+  }, [online]);
 
   const handleLogout = () => {
     localStorage.removeItem('logshield_token');

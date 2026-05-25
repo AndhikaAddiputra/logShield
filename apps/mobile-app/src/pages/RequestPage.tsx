@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ChevronDown, Minus, Plus, ArrowRight, Lock, Loader2 } from 'lucide-react';
-import { API_BASE_URL, getAuthHeaders } from '../lib/api';
+import { sendJsonWithOfflineFallback } from '../lib/offlineOutbox';
 
 export default function RequestPage({ onNavigate }: { onNavigate: (page: string) => void }) {
   const [quantity, setQuantity] = useState(1);
@@ -43,18 +43,17 @@ export default function RequestPage({ onNavigate }: { onNavigate: (page: string)
         ]
       };
 
-      const response = await fetch(`${API_BASE_URL}/api/requests`, {
+      const result = await sendJsonWithOfflineFallback({
         method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(payload)
+        endpoint: '/api/requests',
+        payload,
+        localRequest: {
+          posko_id: poskoId,
+          items: payload.items,
+        },
       });
-
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.message || "Gagal mengirim permintaan");
-      }
       
-      alert("Permintaan berhasil dikirim!");
+      alert(result.queued ? "Permintaan disimpan offline. Akan disinkronkan saat online." : "Permintaan berhasil dikirim!");
       
       // Mengembalikan pengguna ke halaman daftar logistik setelah sukses
       onNavigate('logistik');
