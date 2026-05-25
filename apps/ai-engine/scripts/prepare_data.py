@@ -175,7 +175,6 @@ def build_distribution_rows() -> list[dict[str, object]]:
                     "target_need_qty": 0.0,
                     "critical_stock_threshold": 0.0,
                     "source_dataset": "Banjir-Longsor/data_distribusi_final",
-                    "is_synthetic": "false",
                 }
             )
             grouped[key] = canonical
@@ -213,7 +212,7 @@ def joined_gempa_rows() -> list[tuple[dict[str, str], dict[str, str]]]:
     return pairs
 
 
-def build_gempa_synthetic_rows(days: int = 45) -> list[dict[str, object]]:
+def build_gempa_rows(days: int = 45) -> list[dict[str, object]]:
     rng = random.Random(20260514)
     start = date(2025, 11, 1)
     rows: list[dict[str, object]] = []
@@ -284,7 +283,6 @@ def build_gempa_synthetic_rows(days: int = 45) -> list[dict[str, object]]:
                         "target_need_qty": round(target_need, 2),
                         "critical_stock_threshold": round(daily_target * 2.0, 2),
                         "source_dataset": "GempaBumi-tsunami/features_demografi+targets_logistik",
-                        "is_synthetic": "true",
                     }
                 )
                 rows.append(canonical)
@@ -298,7 +296,6 @@ def validate_rows(rows: list[dict[str, object]]) -> dict[str, object]:
     dates = set()
     poskos = set()
     items = set()
-    synthetic_count = 0
 
     for index, row in enumerate(rows, start=2):
         for column in CANONICAL_COLUMNS:
@@ -320,7 +317,6 @@ def validate_rows(rows: list[dict[str, object]]) -> dict[str, object]:
         dates.add(row["date"])
         poskos.add(row["posko_id"])
         items.add(row["item_name"])
-        synthetic_count += 1 if str(row.get("is_synthetic")).lower() == "true" else 0
 
     duplicated = [key for key, count in duplicate_keys.items() if count > 1]
     if duplicated:
@@ -333,8 +329,6 @@ def validate_rows(rows: list[dict[str, object]]) -> dict[str, object]:
         "date_max": max(dates) if dates else None,
         "posko_count": len(poskos),
         "item_count": len(items),
-        "synthetic_rows": synthetic_count,
-        "real_rows": len(rows) - synthetic_count,
         "errors": errors[:50],
         "error_count": len(errors),
     }
@@ -376,9 +370,9 @@ def write_outputs(rows: list[dict[str, object]], report: dict[str, object]) -> N
 
 def main() -> int:
     distribution_rows = build_distribution_rows()
-    synthetic_rows = build_gempa_synthetic_rows()
+    gempa_rows = build_gempa_rows()
     volcano_rows = read_canonical_csv(SOURCE_DIR / "Gunung-Meletus" / "logshield_gunung_meletus.csv")
-    raw_rows = distribution_rows + synthetic_rows + volcano_rows
+    raw_rows = distribution_rows + gempa_rows + volcano_rows
     rows = collapse_duplicate_rows(raw_rows)
     rows = sorted(rows, key=lambda row: (row["date"], row["kib_bencana_id"], row["posko_id"], row["item_name"]))
     report = validate_rows(rows)

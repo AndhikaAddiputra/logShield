@@ -1,10 +1,10 @@
 # Dataset Gunung Meletus
 
-Folder ini berisi dataset sintetis terkontrol untuk skenario erupsi gunung api di Indonesia dan sudah mengikuti schema canonical Log-Shield.
+Folder ini berisi dataset skenario erupsi gunung api di Indonesia dan sudah mengikuti schema canonical Log-Shield.
 
 ## Basis Kejadian
 
-Data sintetis dibuat dari beberapa snapshot lokal:
+Data dibuat dari beberapa snapshot lokal:
 
 - Erupsi Gunung Lewotobi Laki-laki, Flores Timur, NTT: 7, 8, 22, dan 27 November 2024.
 - Erupsi Gunung Ibu, Halmahera Barat, Maluku Utara: 18 dan 19 Januari 2025.
@@ -26,7 +26,7 @@ Selain item umum seperti beras, air, selimut, dan hygiene kit, skenario gunung m
 - `protein_kaleng`
 - `tikar`
 
-## Pola Data Sintetis
+## Pola Data
 
 Pola time series dibuat untuk 45 hari per posko:
 

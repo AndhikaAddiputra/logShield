@@ -31,7 +31,6 @@ CANONICAL_COLUMNS = [
     "target_need_qty",
     "critical_stock_threshold",
     "source_dataset",
-    "is_synthetic",
 ]
 
 NUMERIC_COLUMNS = [
@@ -60,4 +59,3 @@ IDENTITY_COLUMNS = [
     "posko_id",
     "item_name",
 ]
-

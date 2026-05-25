@@ -13,10 +13,6 @@ dependencies = [
 
 [project.optional-dependencies]
 xai = ["shap>=0.46.0"]
-test = ["pytest>=8.0", "httpx>=0.28"]
-
-[tool.hatch.build.targets.wheel]
-packages = ["logshield_ai"]
 
 [build-system]
 requires = ["hatchling"]

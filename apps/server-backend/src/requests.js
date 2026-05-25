@@ -5,6 +5,7 @@ import {
   ValidationError,
 } from "./document-schema.js";
 import { bulkDocuments, findDocuments, getDocument, putDocument, putExistingDocument } from "./couchdb.js";
+import { normalizeItemName } from "./ai.js";
 
 const REQUEST_STATUSES = ["mendesak", "menunggu", "diproses", "selesai"];
 const REQUEST_PRIORITIES = ["critical", "high", "normal", "low"];
@@ -117,7 +118,7 @@ export async function completeRequest(id, actor, now = new Date()) {
 
   const assetIds = doc.items
     .filter((item) => item.commodity)
-    .map((item) => ({ commodity: item.commodity, quantity: item.quantity }));
+    .map((item) => ({ commodity: normalizeItemName(item.commodity), quantity: item.quantity }));
 
   const distinctCommodities = [...new Set(assetIds.map((a) => a.commodity))];
   const assetResult = await findDocuments({ type: "asset" }, { limit: 500 });
@@ -128,7 +129,7 @@ export async function completeRequest(id, actor, now = new Date()) {
 
   for (const commodity of distinctCommodities) {
     const totalQty = assetIds
-      .filter((a) => a.commodity === commodity)
+      .filter((a) => normalizeItemName(a.commodity) === commodity)
       .reduce((sum, a) => sum + a.quantity, 0);
 
     const matchingAssets = allAssets
@@ -321,7 +322,7 @@ function normalizeItems(items) {
       throw new ValidationError(`items.${index} must be an object`);
     }
     return {
-      commodity: requiredString(item.commodity, `items.${index}.commodity`),
+      commodity: normalizeItemName(requiredString(item.commodity, `items.${index}.commodity`)),
       quantity: positiveNumber(item.quantity, `items.${index}.quantity`),
       unit: enumString(item.unit, REQUEST_UNITS, `items.${index}.unit`),
       ...(item.note === undefined ? {} : { note: optionalString(item.note, `items.${index}.note`) }),
