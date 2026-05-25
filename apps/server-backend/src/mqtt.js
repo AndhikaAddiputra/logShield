@@ -15,7 +15,10 @@ export async function startMqttIngestion() {
     return null;
   }
 
-  const client = mqtt.connect(config.mqttBrokerUrl);
+  const client = mqtt.connect(config.mqttBrokerUrl, {
+    ...(config.mqttUser ? { username: config.mqttUser } : {}),
+    ...(config.mqttPassword ? { password: config.mqttPassword } : {}),
+  });
   client.on("connect", () => {
     const topics = [
       config.mqttStockTopic,

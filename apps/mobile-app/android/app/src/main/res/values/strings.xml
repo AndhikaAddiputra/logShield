@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Log-Shield</string>
+    <string name="title_activity_main">Log-Shield</string>
+    <string name="package_name">id.ac.itb.logshield.field</string>
+    <string name="custom_url_scheme">id.ac.itb.logshield.field</string>
+</resources>

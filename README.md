@@ -1,223 +1,183 @@
 # LogShield
 
-REKSTI Capstone Project
+LogShield is an AI and IoT assisted humanitarian logistics platform for disaster response operations. It connects field officers, coordinators, warehouse stock monitoring, AI demand recommendations, anomaly reporting, and offline-first mobile workflows into one operational system.
 
-## Auth API: Signup + Login
+## Release Scope
 
-Backend base URL:
+This release includes:
+
+- Web dashboard for coordinators and administrators.
+- Mobile field app with PWA support and Android APK build support through Capacitor.
+- Node.js backend API with JWT authentication and CouchDB persistence.
+- CouchDB-backed sync data model for field operations.
+- AI engine for forecasting, recommendations, anomaly outputs, and posko inference.
+- MQTT stock ingestion for ESP32 load-cell nodes.
+- Offline-first mobile outbox for field requests, anomaly reports, demographic edits, and supported stock edits.
+- VPS deployment guide, Caddy routing notes, IoT setup guide, and Deliverable 4 artifact.
+
+## Applications
+
+| App | Workspace | Purpose |
+| --- | --- | --- |
+| Web dashboard | `apps/web-dashboard` | Coordinator/admin console for posko, personnel, stock, requests, anomalies, settings, and AI views. |
+| Mobile app | `apps/mobile-app` | Field officer app for posko updates, logistics requests, AI quick requests, anomaly reports, offline queueing, and APK builds. |
+| Backend | `apps/server-backend` | REST API, auth, CouchDB access, MQTT ingestion, stock movement logic, and AI proxy/sync endpoints. |
+| AI engine | `apps/ai-engine` | Forecasting, recommendations, anomaly datasets, model status, and inference services. |
+| Firmware | `firmware/esp32-loadcell` | ESP32 + HX711 load-cell firmware that publishes stock readings over MQTT. |
+
+## Main URLs
+
+Local development defaults:
 
 ```text
-http://localhost:4000
+Backend: http://localhost:4000
+AI engine: http://localhost:8000
+CouchDB: http://localhost:5984/_utils
+Web dashboard: http://localhost:5173
+Mobile app: http://localhost:5174
 ```
 
-The backend supplies everything mobile and web need after login:
+VPS deployment defaults:
 
-- `token`: JWT session token for backend API calls.
-- `user`: safe app user profile.
-- `couchdb`: CouchDB sync credentials for PouchDB replication.
+```text
+Web dashboard: https://logshield.atharizza.com
+Mobile app: https://mobile-logshield.atharizza.com
+Backend API: https://api-logshield.atharizza.com
+CouchDB sync: https://couch-logshield.atharizza.com/logshield
+MQTT broker: mqtt-logshield.atharizza.com:1883
+```
 
-Frontend clients do not create their own session token.
+## Quick Start
 
-## Start Services
+Install dependencies:
+
+```powershell
+npm install
+```
+
+Start local Docker services:
 
 ```powershell
 docker compose --env-file .env -f infrastructure/docker-compose.dev.yml up -d --build
-Invoke-WebRequest -UseBasicParsing -Method POST http://localhost:4000/api/couchdb/bootstrap
 ```
 
-Seed admin login:
+Bootstrap CouchDB and the development admin:
+
+```powershell
+node -e "import('./apps/server-backend/src/couchdb.js').then(async ({bootstrapDatabase}) => { console.log(JSON.stringify(await bootstrapDatabase(), null, 2)); })"
+node -e "import('./apps/server-backend/src/auth.js').then(async ({ensureDevAdmin}) => { console.log(JSON.stringify(await ensureDevAdmin(), null, 2)); })"
+```
+
+Run the web dashboard:
+
+```powershell
+cd apps\web-dashboard
+npm run dev -- --host 0.0.0.0 --port 5173
+```
+
+Run the mobile app:
+
+```powershell
+cd apps\mobile-app
+npm run dev -- --host 0.0.0.0 --port 5174
+```
+
+For the complete clean-database test flow, use [Final_Guide.md](Final_Guide.md).
+
+## Environment
+
+Required backend values:
+
+```env
+NODE_ENV=production
+PORT=4000
+COUCHDB_URL=http://localhost:5984
+COUCHDB_DB_NAME=logshield
+COUCHDB_USER=admin
+COUCHDB_PASSWORD=change-me
+JWT_SECRET=change-me
+AUTH_HASH_SECRET=change-me
+ENCRYPTION_KEY=32-byte-or-64-hex-secret
+MQTT_BROKER_URL=mqtt://localhost:1883
+MQTT_USER=logshield_iot
+MQTT_PASSWORD=change-me
+AI_ENGINE_URL=http://localhost:8000
+```
+
+Required frontend build values:
+
+```env
+VITE_API_URL=http://localhost:4000
+VITE_COUCHDB_URL=http://localhost:5984/logshield
+VITE_COUCHDB_USER=athar
+VITE_COUCHDB_PASSWORD=change-me
+```
+
+## Android APK
+
+Build the mobile web bundle, sync Capacitor, then assemble the APK:
+
+```powershell
+npm run build -w @log-shield/mobile-app
+cd apps\mobile-app
+npx cap sync android
+cd android
+.\gradlew assembleDebug
+```
+
+Debug APK output:
 
 ```text
-identifier: athar@athar.com
-password: atharathar
+apps/mobile-app/android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
-## Signup
+The Android SDK must include platform tools, Android platform 34, and build tools 34.0.0.
 
-Creates a pending registration request. It does not create an active user until admin approval.
+## IoT Stock Ingestion
 
-```http
-POST /api/auth/signup
-Content-Type: application/json
-```
-
-Request body:
-
-```json
-{
-  "email": "newuser@test.com",
-  "name": "New User",
-  "nik": "1234567890123456",
-  "password": "password123",
-  "phone": "081234567890"
-}
-```
-
-Success response:
-
-```json
-{
-  "ok": true,
-  "id": "signup_request::{uuid}",
-  "status": "pending",
-  "message": "Registration submitted for admin review."
-}
-```
-
-## Login
-
-Users can login with either email or 16-digit NIK.
-
-```http
-POST /api/auth/login
-Content-Type: application/json
-```
-
-Email login:
-
-```json
-{
-  "identifier": "newuser@test.com",
-  "password": "password123"
-}
-```
-
-NIK login:
-
-```json
-{
-  "identifier": "1234567890123456",
-  "password": "password123"
-}
-```
-
-Success response:
-
-```json
-{
-  "ok": true,
-  "token": "jwt-token",
-  "user": {
-    "_id": "user::{uuid}",
-    "type": "user",
-    "email": "newuser@test.com",
-    "name": "New User",
-    "kib_bencana_id": "BNC-2026-JK-0001",
-    "role": "koordinator",
-    "posko_id": null,
-    "phone": "081234567890",
-    "created_at": "2026-05-15T00:00:00.000Z",
-    "updated_at": "2026-05-15T00:00:00.000Z"
-  },
-  "couchdb": {
-    "url": "http://localhost:5984/logshield",
-    "username": "newuser@test.com",
-    "password": "generated-couchdb-password",
-    "database": "logshield"
-  }
-}
-```
-
-Use the JWT for backend API requests:
-
-```http
-Authorization: Bearer jwt-token
-```
-
-Use the `couchdb` object for PouchDB sync:
-
-```ts
-import PouchDB from "pouchdb";
-
-const local = new PouchDB("logshield_field_local");
-const remote = new PouchDB(loginResponse.couchdb.url, {
-  skip_setup: true,
-  auth: {
-    username: loginResponse.couchdb.username,
-    password: loginResponse.couchdb.password
-  }
-});
-
-local.sync(remote, {
-  live: true,
-  retry: true
-});
-```
-
-## Admin: List Signup Requests
-
-Requires admin JWT.
-
-```http
-GET /api/admin/signup-requests
-Authorization: Bearer {admin_token}
-```
-
-Optional filter:
-
-```http
-GET /api/admin/signup-requests?status=pending
-```
-
-## Admin: Approve Signup
-
-Requires admin JWT. Admin assigns role and disaster/posko scope here.
-
-```http
-POST /api/admin/signup-requests/{signup_request_id}/approve
-Authorization: Bearer {admin_token}
-Content-Type: application/json
-```
-
-Request body:
-
-```json
-{
-  "role": "koordinator",
-  "kib_bencana_id": "BNC-2026-JK-0001",
-  "posko_id": null
-}
-```
-
-Allowed roles:
+The ESP32 firmware publishes readings to MQTT topics shaped like:
 
 ```text
-admin | koordinator | lapangan
+logshield/warehouse/{warehouse_id}/scale/{node_id}/reading
 ```
 
-`posko_id` can be `null` or:
+Backend ingestion subscribes to:
 
 ```text
-posko::{kib_16}
+logshield/stock/+
+logshield/warehouse/+/scale/+/reading
 ```
 
-Success response includes the created user and an `email_outbox` id.
+For the full laptop-to-VPS firmware and MQTT flow, use [IoT_setup.md](IoT_setup.md).
 
-## Admin: Reject Signup
+## Validation
 
-Requires admin JWT.
+Useful checks before a release commit:
 
-```http
-POST /api/admin/signup-requests/{signup_request_id}/reject
-Authorization: Bearer {admin_token}
-Content-Type: application/json
+```powershell
+node --check apps/server-backend/src/config.js
+node --check apps/server-backend/src/mqtt.js
+npm run build -w @log-shield/mobile-app
+npm run build -w @log-shield/web-dashboard
 ```
 
-Request body:
+Backend health endpoints:
 
-```json
-{
-  "reason": "Data belum valid."
-}
+```text
+GET /api/health
+GET /api/couchdb/health
+GET /api/ai/summary
 ```
 
-Success response marks the request as `rejected` and creates a rejection `email_outbox` document.
+## Documentation
 
-## Frontend Notes
+- [Final_Guide.md](Final_Guide.md): full Linux/VPS and system testing flow.
+- [IoT_setup.md](IoT_setup.md): MQTT and ESP32 setup flow.
+- `Kelompok_09_Deliverable_4_LogShield.pdf`: release deliverable artifact.
 
-- Signup users only provide email, name, NIK, password, and phone.
-- Users cannot choose their own role, KIB bencana, or posko.
-- Pending or rejected users cannot login.
-- Raw password is never stored.
-- Raw NIK is never stored; the backend stores encrypted NIK plus a lookup hash.
-- Approval/rejection email is stored in CouchDB as `email_outbox::{timestamp_ms}::{uuid}` for development.
+## Notes
+
+- Backend remains the source of truth once the mobile app reconnects.
+- Offline mobile behavior is implemented with PouchDB/IndexedDB and an outbox, not by running the backend inside the browser.
+- AI inference is online-only in this release.
+- MQTT on VPS is authenticated; local firmware credentials are for testing and should be rotated before real deployment.

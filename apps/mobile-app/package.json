@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/android": "^6.2.1",
     "@capacitor/core": "^6.1.2",
     "@log-shield/shared-types": "*",
     "@log-shield/ui-core": "*",

@@ -6,12 +6,14 @@
 #include <Preferences.h>
 
 // ----- Wi-Fi -----
-const char* WIFI_SSID = "Wanyo V25";
-const char* WIFI_PASSWORD = "anohuehu";
+const char* WIFI_SSID = "lantai2";
+const char* WIFI_PASSWORD = "padasuka828";
 
 // ----- MQTT Broker -----
-const char* MQTT_BROKER = "10.243.158.38";
+const char* MQTT_BROKER = "mqtt-logshield.atharizza.com";
 const int MQTT_PORT = 1883;
+const char* MQTT_USER = "logshield_iot";
+const char* MQTT_PASSWORD = "logshieldiot123!";
 
 // ----- Node -----
 const char* WAREHOUSE_ID = "WH-001";
@@ -215,7 +217,7 @@ void mqttConnect() {
 
   Serial.printf("[MQTT] Connecting to %s:%d\n", MQTT_BROKER, MQTT_PORT);
 
-  if (mqtt.connect(clientId.c_str())) {
+  if (mqtt.connect(clientId.c_str(), MQTT_USER, MQTT_PASSWORD)) {
     Serial.println("[MQTT] Connected!");
     mqtt.subscribe(topicConfig, 1);
     Serial.printf("[MQTT] Subscribe: %s\n", topicConfig);

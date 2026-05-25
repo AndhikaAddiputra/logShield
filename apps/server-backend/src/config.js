@@ -7,6 +7,8 @@ export const config = {
   aiEngineUrl: stripTrailingSlash(process.env.AI_ENGINE_URL || "http://127.0.0.1:8000"),
   mqttBrokerUrl: process.env.MQTT_BROKER_URL || "mqtt://localhost:1883",
   mqttStockTopic: process.env.MQTT_STOCK_TOPIC || "logshield/stock/+",
+  mqttUser: process.env.MQTT_USER || "",
+  mqttPassword: process.env.MQTT_PASSWORD || "",
   jwtSecret: process.env.JWT_SECRET || "dev-logshield-secret-change-me",
   authHashSecret: process.env.AUTH_HASH_SECRET || process.env.JWT_SECRET || "dev-logshield-secret-change-me",
   encryptionKey: process.env.ENCRYPTION_KEY || "dev-logshield-encryption-key-change-me",

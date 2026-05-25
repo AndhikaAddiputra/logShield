@@ -31,7 +31,13 @@ apps/ai-engine/models/statsforecast/*.pkl
 .capacitor/
 android/
 ios/
+!apps/mobile-app/android/
+!apps/mobile-app/android/**
+apps/mobile-app/android/.gradle/
+apps/mobile-app/android/**/build/
+apps/mobile-app/android/local.properties
 *.egg-info/
 .eggs/
 .pio/
 .pio-venv/
+infrastructure/mosquitto_passwords

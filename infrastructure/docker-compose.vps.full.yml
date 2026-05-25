@@ -1,0 +1,124 @@
+
+services:
+  couchdb:
+    image: couchdb:3
+    container_name: logshield-couchdb
+    ports:
+      - "127.0.0.1:5985:5984"
+    environment:
+      COUCHDB_USER: ${COUCHDB_USER}
+      COUCHDB_PASSWORD: ${COUCHDB_PASSWORD}
+    volumes:
+      - couchdb_data:/opt/couchdb/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://${COUCHDB_USER}:${COUCHDB_PASSWORD}@localhost:5984/_up"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - logshield_network
+    restart: unless-stopped
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: logshield-mosquitto
+    ports:
+      - "1883:1883"
+      - "127.0.0.1:9001:9001"
+    environment:
+      ALLOW_ANONYMOUS: "true"
+      MQTT_USER: ${MQTT_USER}
+      MQTT_PASSWORD: ${MQTT_PASSWORD}
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - ./mosquitto_passwords:/mosquitto/config/passwords:ro
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_logs:/mosquitto/log
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -h localhost -u \"$${MQTT_USER}\" -P \"$${MQTT_PASSWORD}\" -t '$$SYS/broker/version' -C 1 -i healthcheck -W 3 >/dev/null"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - logshield_network
+    restart: unless-stopped
+
+  ai-engine:
+    build:
+      context: ../
+      dockerfile: apps/ai-engine/Dockerfile
+    container_name: logshield-ai-engine
+    ports:
+      - "127.0.0.1:8080:8000"
+    networks:
+      - logshield_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  backend:
+    build:
+      context: ../
+      dockerfile: apps/server-backend/Dockerfile
+    container_name: logshield-backend
+    ports:
+      - "127.0.0.1:4000:4000"
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      PORT: 4000
+
+      COUCHDB_URL: http://couchdb:5984
+      COUCHDB_DB_NAME: ${COUCHDB_DB_NAME}
+      COUCHDB_USER: ${COUCHDB_USER}
+      COUCHDB_PASSWORD: ${COUCHDB_PASSWORD}
+
+      JWT_SECRET: ${JWT_SECRET}
+      AUTH_HASH_SECRET: ${AUTH_HASH_SECRET}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      JWT_EXPIRY: ${JWT_EXPIRY:-7d}
+
+      MQTT_BROKER_URL: mqtt://mosquitto:1883
+      MQTT_STOCK_TOPIC: ${MQTT_STOCK_TOPIC:-logshield/stock/+}
+      MQTT_USER: ${MQTT_USER:-}
+      MQTT_PASSWORD: ${MQTT_PASSWORD:-}
+
+      AI_ENGINE_URL: http://ai-engine:8000
+
+      DEV_LOGIN_EMAIL: ${DEV_LOGIN_EMAIL}
+      DEV_LOGIN_USERNAME: ${DEV_LOGIN_USERNAME}
+      DEV_LOGIN_NIK: ${DEV_LOGIN_NIK}
+      DEV_LOGIN_PASSWORD: ${DEV_LOGIN_PASSWORD}
+    depends_on:
+      couchdb:
+        condition: service_healthy
+      mosquitto:
+        condition: service_healthy
+      ai-engine:
+        condition: service_healthy
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - logshield_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:4000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  logshield_network:
+    driver: bridge
+
+volumes:
+  couchdb_data:
+  mosquitto_data:
+  mosquitto_logs:
