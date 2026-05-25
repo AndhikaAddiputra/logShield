@@ -1,11 +1,19 @@
 # LogShield Newest Full Test Guide
 
-This guide is for testing the newest `cobaan` version from a clean local database, including backend, web dashboard, mobile app, AI, and the new offline-first mobile outbox.
+This guide is for testing the newest `cobaan-v2` version from a clean local database, including backend, web dashboard, mobile app, AI, and the new offline-first mobile outbox.
 
-The guide assumes Windows PowerShell and this project path:
+Use the command block for your operating system. Windows examples use PowerShell; macOS/Linux examples use a normal shell.
+
+Windows PowerShell:
 
 ```powershell
 cd "C:\Users\Atharizza MA\Documents\logShield"
+```
+
+macOS/Linux:
+
+```bash
+cd ~/Documents/logShield
 ```
 
 Default logins:
@@ -27,11 +35,21 @@ Mobile app: http://localhost:5174
 
 ## 1. Pull Latest Branch
 
-From the project root:
+From the project root.
+
+Windows PowerShell:
 
 ```powershell
-git checkout cobaan
-git pull origin cobaan
+git checkout cobaan-v2
+git pull origin cobaan-v2
+npm install
+```
+
+macOS/Linux:
+
+```bash
+git checkout cobaan-v2
+git pull origin cobaan-v2
 npm install
 ```
 
@@ -41,7 +59,16 @@ If `npm install` changes `package-lock.json`, that is expected when dependencies
 
 This deletes local Docker database volumes. Only do this when you want a clean test.
 
+Windows PowerShell:
+
 ```powershell
+docker compose --env-file .env -f infrastructure/docker-compose.dev.yml down -v
+docker compose --env-file .env -f infrastructure/docker-compose.dev.yml up -d --build
+```
+
+macOS/Linux:
+
+```bash
 docker compose --env-file .env -f infrastructure/docker-compose.dev.yml down -v
 docker compose --env-file .env -f infrastructure/docker-compose.dev.yml up -d --build
 ```
@@ -59,7 +86,16 @@ logshield-backend
 
 Do not use `POST /api/couchdb/bootstrap`; this branch uses direct Node bootstrap.
 
+Windows PowerShell:
+
 ```powershell
+node -e "import('./apps/server-backend/src/couchdb.js').then(async ({bootstrapDatabase}) => { console.log(JSON.stringify(await bootstrapDatabase(), null, 2)); })"
+node -e "import('./apps/server-backend/src/auth.js').then(async ({ensureDevAdmin}) => { console.log(JSON.stringify(await ensureDevAdmin(), null, 2)); })"
+```
+
+macOS/Linux:
+
+```bash
 node -e "import('./apps/server-backend/src/couchdb.js').then(async ({bootstrapDatabase}) => { console.log(JSON.stringify(await bootstrapDatabase(), null, 2)); })"
 node -e "import('./apps/server-backend/src/auth.js').then(async ({ensureDevAdmin}) => { console.log(JSON.stringify(await ensureDevAdmin(), null, 2)); })"
 ```
@@ -73,10 +109,20 @@ This creates:
 
 ## 4. Health Checks
 
+Windows PowerShell:
+
 ```powershell
 Invoke-RestMethod http://localhost:4000/api/health
 Invoke-RestMethod http://localhost:4000/api/couchdb/health
 Invoke-RestMethod http://localhost:8000/health
+```
+
+macOS/Linux:
+
+```bash
+curl http://localhost:4000/api/health
+curl http://localhost:4000/api/couchdb/health
+curl http://localhost:8000/health
 ```
 
 Expected:
@@ -86,6 +132,8 @@ Expected:
 - AI engine `status: ok`
 
 ## 5. Get Admin API Token
+
+Windows PowerShell:
 
 ```powershell
 $loginBody = @{
@@ -101,11 +149,24 @@ $headers = @{ Authorization = "Bearer $($login.token)" }
 $login.user
 ```
 
-Use `$headers` for protected API checks.
+macOS/Linux:
+
+```bash
+TOKEN=$(curl -s -X POST http://localhost:4000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"identifier":"athar@athar.com","password":"atharathar"}' \
+  | node -pe "JSON.parse(require('fs').readFileSync(0, 'utf8')).token")
+
+echo "$TOKEN"
+```
+
+Use `$headers` on Windows or `$TOKEN` on macOS/Linux for protected API checks.
 
 ## 6. Seed Stock Data
 
 The sensor endpoint needs `weight_delta_g`; `weight_g` alone is not enough.
+
+Windows PowerShell:
 
 ```powershell
 Invoke-RestMethod -Method POST http://localhost:4000/api/stock-readings `
@@ -115,6 +176,18 @@ Invoke-RestMethod -Method POST http://localhost:4000/api/stock-readings `
 Invoke-RestMethod http://localhost:4000/api/stock-readings -Headers $headers
 Invoke-RestMethod http://localhost:4000/api/stocks/categories -Headers $headers
 Invoke-RestMethod http://localhost:4000/api/stocks/summary -Headers $headers
+```
+
+macOS/Linux:
+
+```bash
+curl -X POST http://localhost:4000/api/stock-readings \
+  -H "Content-Type: application/json" \
+  -d '{"warehouse_id":"WH-JKT-001","commodity":"beras","weight_g":250000,"weight_delta_g":250000,"unit":"kg","node_id":"node-test-1","battery_mv":4100,"rssi":-55,"uptime_s":120,"sample_count":15}'
+
+curl http://localhost:4000/api/stock-readings -H "Authorization: Bearer $TOKEN"
+curl http://localhost:4000/api/stocks/categories -H "Authorization: Bearer $TOKEN"
+curl http://localhost:4000/api/stocks/summary -H "Authorization: Bearer $TOKEN"
 ```
 
 Expected:
@@ -127,10 +200,19 @@ Expected:
 
 Use the app folder, not the root script, so Vite does not treat host/port as paths.
 
-Open a new PowerShell:
+Open a new terminal.
+
+Windows PowerShell:
 
 ```powershell
 cd "C:\Users\Atharizza MA\Documents\logShield\apps\web-dashboard"
+npm run dev -- --host 0.0.0.0 --port 5173
+```
+
+macOS/Linux:
+
+```bash
+cd ~/Documents/logShield/apps/web-dashboard
 npm run dev -- --host 0.0.0.0 --port 5173
 ```
 
@@ -151,10 +233,19 @@ atharathar
 
 For normal online feature testing, dev mode is fine.
 
-Open another PowerShell:
+Open another terminal.
+
+Windows PowerShell:
 
 ```powershell
 cd "C:\Users\Atharizza MA\Documents\logShield\apps\mobile-app"
+npm run dev -- --host 0.0.0.0 --port 5174
+```
+
+macOS/Linux:
+
+```bash
+cd ~/Documents/logShield/apps/mobile-app
 npm run dev -- --host 0.0.0.0 --port 5174
 ```
 
@@ -182,10 +273,18 @@ In the web dashboard as admin:
 5. Save.
 6. Open `Assets` and confirm `beras` exists from the seeded stock reading.
 
-API check:
+API check.
+
+Windows PowerShell:
 
 ```powershell
 Invoke-RestMethod http://localhost:4000/api/poskos -Headers $headers
+```
+
+macOS/Linux:
+
+```bash
+curl http://localhost:4000/api/poskos -H "Authorization: Bearer $TOKEN"
 ```
 
 ## 10. Create And Approve Field Account
@@ -264,6 +363,8 @@ Back in web dashboard:
 
 ## 13. AI Endpoint Checks
 
+Windows PowerShell:
+
 ```powershell
 Invoke-RestMethod http://localhost:4000/api/ai/summary
 Invoke-RestMethod http://localhost:4000/api/ai/models/current
@@ -272,12 +373,35 @@ Invoke-RestMethod "http://localhost:4000/api/ai/recommendations/top-critical?lim
 Invoke-RestMethod -Method POST "http://localhost:4000/api/ai/sync?limit=50" -Headers $headers
 ```
 
+macOS/Linux:
+
+```bash
+curl http://localhost:4000/api/ai/summary
+curl http://localhost:4000/api/ai/models/current
+curl "http://localhost:4000/api/ai/dashboard?limit=20"
+curl "http://localhost:4000/api/ai/recommendations/top-critical?limit=20"
+curl -X POST "http://localhost:4000/api/ai/sync?limit=50" -H "Authorization: Bearer $TOKEN"
+```
+
 To infer for a real posko:
+
+Windows PowerShell:
 
 ```powershell
 $poskos = Invoke-RestMethod http://localhost:4000/api/poskos -Headers $headers
 $poskoId = $poskos.rows[0]._id
 Invoke-RestMethod -Method POST "http://localhost:4000/api/ai/infer/posko/$poskoId" -Headers $headers
+```
+
+macOS/Linux:
+
+```bash
+POSKO_ID=$(curl -s http://localhost:4000/api/poskos \
+  -H "Authorization: Bearer $TOKEN" \
+  | node -pe "JSON.parse(require('fs').readFileSync(0, 'utf8')).rows[0]._id")
+
+curl -X POST "http://localhost:4000/api/ai/infer/posko/$POSKO_ID" \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 Do not literally use `YOUR_POSKO_ID`; use a real `_id` from `/api/poskos`.
@@ -296,9 +420,18 @@ Ctrl + C
 
 ### 14.2 Build And Preview Mobile PWA
 
-From the project root:
+From the project root.
+
+Windows PowerShell:
 
 ```powershell
+npm run build -w @log-shield/mobile-app
+npm run preview -w @log-shield/mobile-app -- --host 0.0.0.0 --port 5174
+```
+
+macOS/Linux:
+
+```bash
 npm run build -w @log-shield/mobile-app
 npm run preview -w @log-shield/mobile-app -- --host 0.0.0.0 --port 5174
 ```
@@ -485,12 +618,22 @@ If a failed count appears, click the failed/retry badge in the mobile header.
 
 ### 14.13 Verify Synced Data
 
-Use PowerShell:
+Verify through the API.
+
+Windows PowerShell:
 
 ```powershell
 Invoke-RestMethod http://localhost:4000/api/requests -Headers $headers
 Invoke-RestMethod http://localhost:4000/api/anomalies -Headers $headers
 Invoke-RestMethod http://localhost:4000/api/poskos -Headers $headers
+```
+
+macOS/Linux:
+
+```bash
+curl http://localhost:4000/api/requests -H "Authorization: Bearer $TOKEN"
+curl http://localhost:4000/api/anomalies -H "Authorization: Bearer $TOKEN"
+curl http://localhost:4000/api/poskos -H "Authorization: Bearer $TOKEN"
 ```
 
 Expected:
@@ -503,10 +646,19 @@ Expected:
 
 ### Vite 404 On Web Dashboard
 
-If `http://localhost:5173` returns 404, restart from the web app folder:
+If `http://localhost:5173` returns 404, restart from the web app folder.
+
+Windows PowerShell:
 
 ```powershell
 cd "C:\Users\Atharizza MA\Documents\logShield\apps\web-dashboard"
+npm run dev -- --host 0.0.0.0 --port 5173
+```
+
+macOS/Linux:
+
+```bash
+cd ~/Documents/logShield/apps/web-dashboard
 npm run dev -- --host 0.0.0.0 --port 5173
 ```
 
@@ -520,17 +672,34 @@ Clear old PWA cache:
 4. Stop preview server.
 5. Rebuild and preview again.
 
+Windows PowerShell:
+
 ```powershell
+npm run build -w @log-shield/mobile-app
+npm run preview -w @log-shield/mobile-app -- --host 0.0.0.0 --port 5174
+```
+
+macOS/Linux:
+
+```bash
 npm run build -w @log-shield/mobile-app
 npm run preview -w @log-shield/mobile-app -- --host 0.0.0.0 --port 5174
 ```
 
 ### Missing Bearer Token
 
-Protected endpoints need:
+Protected endpoints need auth.
+
+Windows PowerShell:
 
 ```powershell
 Invoke-RestMethod http://localhost:4000/api/requests -Headers $headers
+```
+
+macOS/Linux:
+
+```bash
+curl http://localhost:4000/api/requests -H "Authorization: Bearer $TOKEN"
 ```
 
 ### Stock Reading Validation Error
@@ -552,7 +721,9 @@ sample_count
 
 ### Docker Broken Or Backend Not Reachable
 
-Check:
+Check.
+
+Windows PowerShell:
 
 ```powershell
 docker --version
@@ -561,7 +732,16 @@ docker ps
 Invoke-RestMethod http://localhost:4000/api/health
 ```
 
-If Docker service is stopped, use Administrator PowerShell:
+macOS/Linux:
+
+```bash
+docker --version
+docker compose version
+docker ps
+curl http://localhost:4000/api/health
+```
+
+If Docker service is stopped on Windows, use Administrator PowerShell:
 
 ```powershell
 Start-Service com.docker.service
@@ -570,21 +750,24 @@ Start-Process "C:\Program Files\Docker\Docker\Docker Desktop.exe"
 
 ### Rebuild Backend After Code Changes
 
-```powershell
+All platforms:
+
+```bash
 docker compose --env-file .env -f infrastructure/docker-compose.dev.yml up -d --build backend
 ```
 
 ## 16. Stop Everything
 
-Stop containers but keep database volume:
+Stop containers but keep database volume.
 
-```powershell
+All platforms:
+
+```bash
 docker compose --env-file .env -f infrastructure/docker-compose.dev.yml down
 ```
 
 Stop containers and delete local database:
 
-```powershell
+```bash
 docker compose --env-file .env -f infrastructure/docker-compose.dev.yml down -v
 ```
-
