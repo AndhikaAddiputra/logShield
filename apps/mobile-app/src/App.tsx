@@ -3,58 +3,52 @@ import AppLayout from './pages/AppLayout';
 import LoginPage from './pages/LoginPage';
 import PoskoInitPage from './pages/InitPage';
 import { createLocalDb, startCouchReplication } from './lib/pouch';
-import { useAuthStore } from './store/authStore';
+import { useSyncStore } from './store/syncStore';
 import { SplashScreen } from './components/SplashScreen';
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState('login');
+  const remoteUrl = import.meta.env.VITE_COUCHDB_URL;
   const [showSplash, setShowSplash] = useState(true);
-  const { token, couchdb } = useAuthStore();
-
-  const isLoggedIn = !!token;
 
   useEffect(() => {
+    // Database initialization
+    const local = createLocalDb();
+    let handle: any;
+
+    if (!remoteUrl) {
+      useSyncStore.getState().setFromReplication({
+        status: "paused",
+        detail:
+          "Variabel VITE_COUCHDB_URL belum diatur - hanya mode lokal tanpa replikasi.",
+      });
+    } else {
+      handle = startCouchReplication(local, remoteUrl);
+    }
+
+    // Splash screen timer
     const splashTimer = setTimeout(() => {
       setShowSplash(false);
     }, 2500);
 
-    return () => clearTimeout(splashTimer);
-  }, []);
-
-  useEffect(() => {
-    if (isLoggedIn && couchdb?.url) {
-      const local = createLocalDb();
-      const handle = startCouchReplication(local, couchdb.url);
-      return () => handle.cancel();
-    }
-  }, [isLoggedIn, couchdb?.url]);
-
-  const navigate = (page: string) => {
-    if (page === 'login') {
-      if (!isLoggedIn) {
-        setCurrentPage('login');
-      }
-    } else {
-      setCurrentPage(page);
-    }
-  };
+    return () => {
+      if (handle) handle.cancel();
+      clearTimeout(splashTimer);
+    };
+  }, [remoteUrl]);
 
   const renderScreen = () => {
-    if (!isLoggedIn && currentPage !== 'login') {
-      return <LoginPage onNavigate={navigate} />;
-    }
-
     switch (currentPage) {
       case 'login':
-        return isLoggedIn ? <AppLayout currentPage="dashboard" onNavigate={navigate} /> : <LoginPage onNavigate={navigate} />;
+        return <LoginPage onNavigate={setCurrentPage} />;
       case 'inisialisasi-posko':
-        return <PoskoInitPage onNavigate={navigate} />;
+        return <PoskoInitPage onNavigate={setCurrentPage} />;
       case 'req':
       case 'dashboard':
       case 'logistik':
       case 'profil':
       default:
-        return <AppLayout currentPage={currentPage} onNavigate={navigate} />;
+        return <AppLayout currentPage={currentPage} onNavigate={setCurrentPage} />;
     }
   };
 

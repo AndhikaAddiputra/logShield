@@ -44,14 +44,14 @@ const signupRequestStatuses = ["pending", "approved", "rejected"];
 const authCredentialStatuses = ["active", "inactive"];
 const emailOutboxStatuses = ["queued", "sent", "failed"];
 const distributionUnits = ["kg", "liter", "pcs", "karton", "kit"];
-const assetUnits = ["kg", "pcs", "karton", "unit"];
+const assetUnits = ["kg", "liter", "pcs", "karton", "unit"];
 const vulnerableGroups = ["umum", "balita", "lansia", "ibu_hamil", "disabilitas"];
 const requestStatuses = ["mendesak", "menunggu", "diproses", "selesai"];
 const requestPriorities = ["critical", "high", "normal", "low"];
 const assetCategories = ["sandang", "pangan", "papan", "lainnya"];
 const auditStatuses = ["sukses", "ditolak", "timeout", "error"];
 const stockMovementTypes = ["in", "out"];
-const stockMovementSources = ["manual", "distribution", "sensor"];
+const stockMovementSources = ["manual", "distribution", "sensor", "request_completion"];
 
 export function validateLogShieldDocument(doc) {
   assertObject(doc, "document");
@@ -86,6 +86,8 @@ export function validateLogShieldDocument(doc) {
       return validateAsset(doc);
     case "stock_movement":
       return validateStockMovement(doc);
+    case "anomaly_report":
+      return validateAnomalyReport(doc);
     case "audit_log":
       return validateAuditLog(doc);
     default:
@@ -258,6 +260,24 @@ export function createRequestDoc(
   return doc;
 }
 
+export function createAnomalyReportDoc(payload, now = new Date()) {
+  const doc = {
+    _id: `anomaly_report::${randomUUID()}`,
+    type: "anomaly_report",
+    posko_id: payload.posko_id,
+    commodity: payload.commodity,
+    severity: payload.severity || "medium",
+    status: payload.status || "reported",
+    reported_by: payload.reported_by,
+    description: payload.description || "",
+    location: payload.location || "",
+    created_at: now.toISOString(),
+    updated_at: now.toISOString(),
+  };
+  validateAnomalyReport(doc);
+  return doc;
+}
+
 export function validateSignupInput({ email: emailValue, name, nik, password, phone, avatar_url }) {
   email(emailValue, "email");
   requiredString(name, "name");
@@ -417,16 +437,20 @@ function validatePrediction(doc) {
   requiredString(doc.posko_id, "posko_id");
   requiredString(doc.commodity, "commodity");
   isoDate(doc.prediction_date, "prediction_date");
-  requiredNumber(doc.predicted_kg, "predicted_kg");
+  const predictedValue = doc.predicted_kg === null || doc.predicted_kg === undefined
+    ? requiredNumber(doc.predicted_qty, "predicted_qty")
+    : requiredNumber(doc.predicted_kg, "predicted_kg");
+  optionalString(doc.unit, "unit");
   requiredNumber(doc.confidence_low, "confidence_low");
   requiredNumber(doc.confidence_high, "confidence_high");
-  if (doc.confidence_low > doc.predicted_kg || doc.predicted_kg > doc.confidence_high) {
-    throw new ValidationError("predicted_kg must be within confidence_low and confidence_high");
+  if (doc.confidence_low > predictedValue || predictedValue > doc.confidence_high) {
+    throw new ValidationError("predicted_kg or predicted_qty must be within confidence_low and confidence_high");
   }
-  requiredNumber(doc.mae_last_7d, "mae_last_7d");
-  assertObject(doc.shap_values, "shap_values");
-  for (const [key, value] of Object.entries(doc.shap_values)) {
-    requiredNumber(value, `shap_values.${key}`);
+  if (doc.mae_last_7d !== null) requiredNumber(doc.mae_last_7d, "mae_last_7d");
+  const attributionValues = doc.shap_values || doc.attribution_values;
+  assertObject(attributionValues, doc.shap_values ? "shap_values" : "attribution_values");
+  for (const [key, value] of Object.entries(attributionValues)) {
+    requiredNumber(value, `${doc.shap_values ? "shap_values" : "attribution_values"}.${key}`);
   }
   if (!Array.isArray(doc.rationale_chips)) {
     throw new ValidationError("rationale_chips must be an array");
@@ -435,8 +459,12 @@ function validatePrediction(doc) {
     assertObject(chip, `rationale_chips.${index}`);
     requiredString(chip.feature, `rationale_chips.${index}.feature`);
     requiredString(chip.narrative, `rationale_chips.${index}.narrative`);
-    requiredNumber(chip.shap_value, `rationale_chips.${index}.shap_value`);
+    requiredNumber(
+      chip.shap_value ?? chip.attribution_value,
+      `rationale_chips.${index}.${chip.shap_value === undefined ? "attribution_value" : "shap_value"}`
+    );
   });
+  optionalString(doc.attribution_method, "attribution_method");
   requiredString(doc.model_version, "model_version");
   isoTimestamp(doc.created_at, "created_at");
   return doc;
@@ -516,6 +544,24 @@ function validateRequest(doc) {
   enumValue(doc.priority, requestPriorities, "priority");
   nullableString(doc.processed_by, "processed_by");
   nullableIsoTimestamp(doc.processed_at, "processed_at");
+  isoTimestamp(doc.created_at, "created_at");
+  isoTimestamp(doc.updated_at, "updated_at");
+  return doc;
+}
+
+const anomalySeverities = ["low", "medium", "high", "critical"];
+const anomalyStatuses = ["reported", "investigating", "resolved"];
+
+function validateAnomalyReport(doc) {
+  requireId(doc, /^anomaly_report::/);
+  exact(doc.type, "anomaly_report", "type");
+  requiredString(doc.posko_id, "posko_id");
+  requiredString(doc.commodity, "commodity");
+  enumValue(doc.severity, anomalySeverities, "severity");
+  enumValue(doc.status, anomalyStatuses, "status");
+  requiredString(doc.reported_by, "reported_by");
+  optionalString(doc.description, "description");
+  optionalString(doc.location, "location");
   isoTimestamp(doc.created_at, "created_at");
   isoTimestamp(doc.updated_at, "updated_at");
   return doc;

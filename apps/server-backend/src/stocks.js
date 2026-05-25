@@ -4,6 +4,7 @@ import {
   ValidationError,
 } from "./document-schema.js";
 import { bulkDocuments, findDocuments, getDocument, putExistingDocument } from "./couchdb.js";
+import { normalizeItemName } from "./ai.js";
 
 const CATEGORY_META = {
   sandang: {
@@ -165,7 +166,7 @@ async function getDocs(selector, limit) {
 function normalizeAddStockInput(input = {}) {
   return {
     warehouse_id: requiredString(input.warehouse_id, "warehouse_id"),
-    commodity: requiredString(input.commodity, "commodity"),
+    commodity: normalizeItemName(requiredString(input.commodity, "commodity")),
     category: requiredString(input.category, "category"),
     quantity: positiveNumber(input.quantity, "quantity"),
     unit: requiredString(input.unit, "unit"),
@@ -177,6 +178,7 @@ function normalizeAddStockInput(input = {}) {
 
 function toCategoryItem(asset) {
   return {
+    _id: asset._id,
     commodity: asset.commodity,
     quantity_available: asset.quantity_available,
     unit: asset.unit,
@@ -184,6 +186,23 @@ function toCategoryItem(asset) {
     is_critical: isCritical(asset),
     progress: stockProgress(asset),
   };
+}
+
+export async function deleteAsset(id) {
+  let doc;
+  try {
+    doc = await getDocument(id);
+  } catch (error) {
+    if (error.statusCode === 404) {
+      throw new ValidationError(`Asset tidak ditemukan: ${id}`);
+    }
+    throw error;
+  }
+  if (doc.type !== "asset") {
+    throw new ValidationError("Document is not an asset");
+  }
+  await putExistingDocument({ ...doc, _deleted: true });
+  return { ok: true };
 }
 
 function isCritical(asset) {
@@ -219,6 +238,34 @@ function latestTimestamp(values) {
   return values
     .filter(Boolean)
     .sort((a, b) => Date.parse(b) - Date.parse(a))[0] || null;
+}
+
+export async function updateAsset(id, input = {}, now = new Date()) {
+  const doc = await getDocument(id);
+  if (doc.type !== "asset") {
+    throw new ValidationError("Document is not an asset");
+  }
+
+  const ALLOWED_FIELDS = ["category", "commodity", "unit", "min_threshold"];
+  for (const [key, value] of Object.entries(input)) {
+    if (value === undefined || value === null) continue;
+    if (!ALLOWED_FIELDS.includes(key)) continue;
+    if (key === "min_threshold") {
+      doc[key] = Number(value);
+    } else if (key === "commodity") {
+      doc[key] = normalizeItemName(value);
+    } else {
+      doc[key] = String(value);
+    }
+  }
+
+  doc.updated_at = now.toISOString();
+  validateLogShieldDocument(doc);
+  const result = await putExistingDocument(doc);
+  return {
+    ok: true,
+    asset: { ...doc, _rev: result.rev },
+  };
 }
 
 function isoDate(date) {

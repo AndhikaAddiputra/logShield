@@ -149,6 +149,19 @@ export function fetchPersonnel() {
   return request<PersonnelResponse>("/api/personnel");
 }
 
+export interface UpdatePersonnelPayload {
+  role?: string;
+  posko_id?: string | null;
+  kib_bencana_id?: string;
+}
+
+export function updatePersonnel(id: string, payload: UpdatePersonnelPayload) {
+  return request<{ ok: boolean }>(`/api/personnel/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
 export interface ApprovePayload {
   role: string;
   kib_bencana_id: string;
@@ -259,6 +272,7 @@ export interface StockSummary {
 }
 
 export interface StockItem {
+  _id: string;
   commodity: string;
   quantity_available: number;
   unit: string;
@@ -351,6 +365,19 @@ export function addStock(payload: AddStockPayload) {
   });
 }
 
+export function updateAsset(id: string, payload: { category?: string; unit?: string; min_threshold?: number }) {
+  return request<AddStockResponse>(`/api/stocks/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteAsset(id: string) {
+  return request<{ ok: boolean }>(`/api/stocks/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}
+
 export interface RequestItemUI {
   name: string;
   quantity: string;
@@ -422,6 +449,22 @@ export interface CreateRequestPayload {
 
 export function createRequest(payload: CreateRequestPayload) {
   return request("/api/requests", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export interface QuickRequestPayload {
+  posko_id: string;
+  commodity: string;
+  quantity: number;
+  unit: string;
+  priority?: string;
+  note?: string;
+}
+
+export function quickRequest(payload: QuickRequestPayload) {
+  return request("/api/ai/quick-request", {
     method: "POST",
     body: JSON.stringify(payload),
   });
@@ -638,5 +681,72 @@ export function updateNotificationSettings(payload: { email?: boolean; app?: boo
   return request<{ ok: boolean; notifications: SettingsNotifications }>("/api/settings/notifications", {
     method: "PATCH",
     body: JSON.stringify(payload),
+  });
+}
+
+export interface AiInferenceResult {
+  item_name: string;
+  item_category: string;
+  unit: string;
+  current_stock_qty: number;
+  critical_stock_threshold: number;
+  history_days: number;
+  forecast_qty: number;
+  risk_level: string | null;
+  recommended_qty: number;
+  shortage_qty: number;
+  coverage_days: number;
+  priority_score: number;
+  trust_score: number;
+  inference_mode: string;
+  commodity_class: string | null;
+  rationale_chips: string[];
+  daily_recommendations: Record<string, unknown>[];
+  trend_direction?: string;
+  trend_pct_7d?: number;
+  attribution?: Record<string, number>;
+  error: string | null;
+}
+
+export function triggerAiInference(poskoId: string) {
+  return request<{
+    ok: boolean;
+    posko_id: string;
+    posko_name: string;
+    items_analyzed: number;
+    items: Record<string, unknown>[];
+    results: AiInferenceResult[];
+    stored_predictions: number;
+  }>(
+    `/api/ai/infer/posko/${poskoId}`,
+    { method: "POST" }
+  );
+}
+
+export interface AnomalyReport {
+  _id: string;
+  type: string;
+  posko_id: string;
+  commodity: string;
+  severity: "low" | "medium" | "high" | "critical";
+  status: "reported" | "investigating" | "resolved";
+  reported_by: string;
+  description?: string;
+  location?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export function fetchAnomalyReports(params: Record<string, string> = {}) {
+  const qs = new URLSearchParams(params).toString();
+  return request<{ count: number; rows: AnomalyReport[] }>(
+    `/api/anomalies${qs ? `?${qs}` : ""}`
+  );
+}
+
+export function updateAnomalyStatus(id: string, status: string) {
+  return request(`/api/anomalies/${encodeURIComponent(id)}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
   });
 }

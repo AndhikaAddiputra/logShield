@@ -1,14 +1,12 @@
 import { useEffect, useState, useCallback } from "react";
 import {
   PageHeader,
-  SelectField,
   StatCard,
 } from "@log-shield/ui-core";
 import {
   AlertTriangle,
   ClipboardCheck,
   ClipboardList,
-  Filter,
   Sparkles,
 } from "lucide-react";
 import {
@@ -188,20 +186,16 @@ export function DashboardPage() {
               Daily Stock Weight per Item Category
             </h2>
             <div className="flex items-center gap-4 text-sm text-ls-navy">
-              <SelectField
+              <select
                 value={selectedWeightValue}
-                onChange={(event) => handleStockWeightChange(event.target.value)}
-                className="h-8 w-44 bg-white text-xs"
-                aria-label="Pilih item stok harian"
+                onChange={(e) => handleStockWeightChange(e.target.value)}
+                className="h-8 rounded border border-ls-border bg-white px-2 text-xs text-ls-navy"
               >
                 <option value="all">Semua Kategori</option>
                 {stockWeightOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
-              </SelectField>
-              <Filter className="size-4" />
+              </select>
             </div>
           </div>
           <div className="h-72 w-full">
@@ -342,4 +336,3 @@ export function DashboardPage() {
     </>
   );
 }
-

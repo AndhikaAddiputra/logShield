@@ -165,15 +165,33 @@ export async function getDashboardRegionalHeatmap(query = {}) {
 }
 
 export async function getDashboardVulnerableFulfillment() {
-  const [poskos, distributions] = await Promise.all([
+  const [poskos, distributions, completedRequests] = await Promise.all([
     getDocs({ type: "posko" }, 5000),
     getDocs({ type: "distribution" }, 5000),
+    getDocs({ type: "request", status: "selesai" }, 5000),
   ]);
+
+  const poskoMap = new Map(poskos.map((p) => [p._id, p]));
 
   return {
     ok: true,
     groups: VULNERABLE_GROUPS.map((group) => {
-      const fulfilled = sum(distributions.filter((doc) => doc.vulnerable_group === group.key), "quantity");
+      let fulfilled = sum(distributions.filter((doc) => doc.vulnerable_group === group.key), "quantity");
+
+      for (const req of completedRequests) {
+        const posko = poskoMap.get(req.posko_id);
+        if (!posko) continue;
+        const totalWarga = numberValue(posko.total_pengungsi) || 1;
+        const reqTotal = (req.items || []).reduce((s, item) => s + numberValue(item.quantity), 0);
+        let groupCount = 0;
+        if (group.poskoField) {
+          groupCount = numberValue(posko[group.poskoField]);
+        } else if (group.key === "ibu_hamil") {
+          groupCount = numberValue(posko.count_perempuan) * 0.05;
+        }
+        fulfilled += (groupCount / totalWarga) * reqTotal;
+      }
+
       const target = group.poskoField
         ? sum(poskos, group.poskoField)
         : Math.max(fulfilled, sum(poskos, "count_perempuan") * 0.05);

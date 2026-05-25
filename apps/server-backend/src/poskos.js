@@ -1,5 +1,5 @@
 import { parse } from "csv-parse/sync";
-import { bulkDocuments, findDocuments, putDocument } from "./couchdb.js";
+import { bulkDocuments, findDocuments, getDocument, putDocument } from "./couchdb.js";
 import { createPoskoDoc, ValidationError } from "./document-schema.js";
 
 const CSV_COLUMNS = [
@@ -169,4 +169,30 @@ function toNumber(value, field) {
     throw new ValidationError(`${field} must be a finite number`);
   }
   return number;
+}
+
+export async function updatePosko(id, input) {
+  const doc = await getDocument(id);
+  if (!doc || doc.type !== "posko") {
+    throw new ValidationError("Posko not found");
+  }
+  const allowedFields = [
+    "kib_16", "name", "address", "district", "province",
+    "total_pengungsi", "count_balita", "count_lansia",
+    "count_perempuan", "count_pria", "count_disabilitas",
+    "pj_phone", "pj_name",
+  ];
+  const updates = {};
+  for (const field of allowedFields) {
+    if (input[field] !== undefined) {
+      updates[field] = input[field];
+    }
+  }
+  const updated = {
+    ...doc,
+    ...updates,
+    updated_at: new Date().toISOString(),
+  };
+  const result = await putDocument(updated);
+  return { ok: true, posko: toPoskoResponse({ ...updated, _rev: result.rev }) };
 }

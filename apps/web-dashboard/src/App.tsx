@@ -11,6 +11,7 @@ import {
   Package,
   Users,
   MapPin,
+  AlertTriangle,
 } from "lucide-react";
 import { AssetsPage } from "./pages/Assets";
 import { DashboardPage } from "./pages/Dashboard";
@@ -22,6 +23,7 @@ import { SignupPage } from "./pages/Signup";
 import { PersonnelPage } from "./pages/Personnel";
 import { PoskoPage } from "./pages/Posko";
 import { SettingsPage } from "./pages/Settings";
+import { AnomaliesPage } from "./pages/Anomalies";
 import { getStoredToken, getStoredUser, clearAuth } from "./lib/api";
 import type { UserProfile } from "./lib/api";
 import logoMark from "./assets/logo.svg";
@@ -61,6 +63,13 @@ const routes = [
     icon: Users,
     path: "/personnel",
     element: <PersonnelPage />,
+  },
+  {
+    id: "anomalies",
+    label: "Anomali",
+    icon: AlertTriangle,
+    path: "/anomalies",
+    element: <AnomaliesPage />,
   },
   {
     id: "settings",

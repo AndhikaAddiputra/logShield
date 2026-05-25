@@ -4,7 +4,6 @@ interface ImportMetaEnv {
   readonly VITE_COUCHDB_URL: string;
   readonly VITE_COUCHDB_USER: string;
   readonly VITE_COUCHDB_PASSWORD: string;
-  readonly VITE_API_URL: string;
 }
 
 interface ImportMeta {
