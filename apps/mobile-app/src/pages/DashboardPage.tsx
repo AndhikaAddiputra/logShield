@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { RefreshCw, Utensils, Shirt, Tent, ChevronRight, Activity, Loader2, Users, Edit3, Check, X, ShoppingCart, AlertTriangle } from 'lucide-react';
 import { API_BASE_URL, getAuthHeaders } from '../lib/api';
 import { cacheValue, getCachedValue, isOfflineMode, noteNetworkFailure, noteNetworkSuccess, sendJsonWithOfflineFallback } from '../lib/offlineOutbox';
@@ -54,63 +54,60 @@ export default function DashboardPage() {
     inferenceAttemptedRef.current = false;
   }, [userPoskoId]);
 
+  const applyPoskoSnapshot = useCallback((doc: any) => {
+    setPoskoData(doc);
+    setDemografiForm({
+      pria: doc.count_pria || 0,
+      wanita: doc.count_perempuan || 0,
+      lansia: doc.count_lansia || 0,
+      balita: doc.count_balita || 0,
+      disabilitas: doc.count_disabilitas || 0,
+    });
+  }, []);
+
+  const fetchPosko = useCallback(async () => {
+    if (!userPoskoId) return;
+    try {
+      if (!online || isOfflineMode()) {
+        const cached = await getCachedValue<any>(`posko:${userPoskoId}`);
+        if (cached) applyPoskoSnapshot(cached);
+        return;
+      }
+      const res = await fetch(`${API_BASE_URL}/api/poskos`, { headers: getAuthHeaders() });
+      if (!res.ok) return;
+      noteNetworkSuccess();
+      const data = await res.json();
+      const rows = data.rows || [];
+      const found = rows.find((r: any) => {
+        const doc = r.doc || r;
+        return doc._id === userPoskoId || doc._id === `posko::${userPoskoId}`;
+      });
+      if (found) {
+        const doc = found.doc || found;
+        await cacheValue(`posko:${userPoskoId}`, doc);
+        applyPoskoSnapshot(doc);
+      }
+    } catch {
+      noteNetworkFailure();
+      const cached = await getCachedValue<any>(`posko:${userPoskoId}`);
+      if (cached) applyPoskoSnapshot(cached);
+    }
+  }, [applyPoskoSnapshot, online, userPoskoId]);
+
   useEffect(() => {
     if (!userPoskoId) return;
-
-    const fetchPosko = async () => {
-      try {
-        if (!online || isOfflineMode()) {
-          const cached = await getCachedValue<any>(`posko:${userPoskoId}`);
-          if (cached) {
-            setPoskoData(cached);
-            setDemografiForm({
-              pria: cached.count_pria || 0,
-              wanita: cached.count_perempuan || 0,
-              lansia: cached.count_lansia || 0,
-              balita: cached.count_balita || 0,
-              disabilitas: cached.count_disabilitas || 0,
-            });
-          }
-          return;
-        }
-        const res = await fetch(`${API_BASE_URL}/api/poskos`, { headers: getAuthHeaders() });
-        if (!res.ok) return;
-        noteNetworkSuccess();
-        const data = await res.json();
-        const rows = data.rows || [];
-        const found = rows.find((r: any) => {
-          const doc = r.doc || r;
-          return doc._id === userPoskoId || doc._id === `posko::${userPoskoId}`;
-        });
-        if (found) {
-          const doc = found.doc || found;
-          await cacheValue(`posko:${userPoskoId}`, doc);
-          setPoskoData(doc);
-          setDemografiForm({
-            pria: doc.count_pria || 0,
-            wanita: doc.count_perempuan || 0,
-            lansia: doc.count_lansia || 0,
-            balita: doc.count_balita || 0,
-            disabilitas: doc.count_disabilitas || 0,
-          });
-        }
-      } catch {
-        noteNetworkFailure();
-        const cached = await getCachedValue<any>(`posko:${userPoskoId}`);
-        if (cached) {
-          setPoskoData(cached);
-          setDemografiForm({
-            pria: cached.count_pria || 0,
-            wanita: cached.count_perempuan || 0,
-            lansia: cached.count_lansia || 0,
-            balita: cached.count_balita || 0,
-            disabilitas: cached.count_disabilitas || 0,
-          });
-        }
-      }
-    };
     fetchPosko();
-  }, [userPoskoId, online]);
+  }, [fetchPosko, userPoskoId, online, pendingOutbox]);
+
+  useEffect(() => {
+    const handleCacheUpdate = (event: Event) => {
+      const poskoId = (event as CustomEvent<{ poskoId?: string }>).detail?.poskoId;
+      if (!poskoId || poskoId !== userPoskoId) return;
+      void fetchPosko();
+    };
+    window.addEventListener("logshield-posko-cache-updated", handleCacheUpdate);
+    return () => window.removeEventListener("logshield-posko-cache-updated", handleCacheUpdate);
+  }, [fetchPosko, userPoskoId]);
 
   const fetchAI = async () => {
     try {
@@ -202,6 +199,19 @@ export default function DashboardPage() {
     setDemografiMessage(null);
     try {
       const total = demografiForm.pria + demografiForm.wanita + demografiForm.lansia + demografiForm.balita + demografiForm.disabilitas;
+      const optimisticPosko = {
+        ...(poskoData || {}),
+        count_pria: demografiForm.pria,
+        count_perempuan: demografiForm.wanita,
+        count_lansia: demografiForm.lansia,
+        count_balita: demografiForm.balita,
+        count_disabilitas: demografiForm.disabilitas,
+        total_pengungsi: total,
+        updated_at: new Date().toISOString(),
+      };
+      await cacheValue(`posko:${userPoskoId}`, optimisticPosko);
+      applyPoskoSnapshot(optimisticPosko);
+
       const result = await sendJsonWithOfflineFallback({
         method: 'PATCH',
         endpoint: `/api/poskos/${encodeURIComponent(userPoskoId)}`,
@@ -214,15 +224,21 @@ export default function DashboardPage() {
           total_pengungsi: total,
         },
       });
-      setPoskoData((prev: any) => prev ? ({
-        ...prev,
+      const responsePosko = !result.queued && result.data && typeof result.data === 'object'
+        ? (result.data as { posko?: any }).posko
+        : null;
+      const updatedPosko = responsePosko || {
+        ...optimisticPosko,
         count_pria: demografiForm.pria,
         count_perempuan: demografiForm.wanita,
         count_lansia: demografiForm.lansia,
         count_balita: demografiForm.balita,
         count_disabilitas: demografiForm.disabilitas,
         total_pengungsi: total,
-      }) : prev);
+        updated_at: result.mutation.payload.client_updated_at,
+      };
+      await cacheValue(`posko:${userPoskoId}`, updatedPosko);
+      applyPoskoSnapshot(updatedPosko);
       setEditingDemografi(false);
       setDemografiMessage(result.queued ? 'Data pengungsi disimpan offline.' : 'Data pengungsi tersimpan.');
       setTimeout(() => setDemografiMessage(null), 3000);

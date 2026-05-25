@@ -14,7 +14,7 @@ import {
   TableHeaderRow,
   TableRow,
 } from "@log-shield/ui-core";
-import { Check, Plus, SlidersHorizontal, X } from "lucide-react";
+import { Check, SlidersHorizontal, X } from "lucide-react";
 import {
   type ApprovePayload,
   type PersonnelRow,
@@ -207,13 +207,6 @@ export function PersonnelPage() {
         searchPlaceholder="Cari personel..."
         searchValue={search}
         onSearchChange={setSearch}
-        actions={
-          isAdmin ? (
-            <Button type="button" variant="primary" size="md" leftIcon={<Plus className="size-4" />}>
-              Tambah Personel Baru
-            </Button>
-          ) : null
-        }
         showNotifications
       />
 

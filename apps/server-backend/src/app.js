@@ -543,12 +543,15 @@ app.post("/api/stock-readings", async (req, res, next) => {
 app.get("/api/stock-readings", authenticateRequest, async (req, res, next) => {
   try {
     const { warehouse_id, commodity, node_id, limit: limitParam } = req.query;
-    const selector = { type: "stock_reading" };
+    const selector = { type: "stock_reading", timestamp: { "$exists": true } };
     if (warehouse_id) selector.warehouse_id = warehouse_id;
     if (commodity) selector.commodity = commodity;
     if (node_id) selector.node_id = node_id;
     const safeLimit = Math.max(1, Math.min(Number(limitParam) || 50, 500));
-    const result = await findDocuments(selector, { limit: safeLimit });
+    const result = await findDocuments(selector, {
+      limit: safeLimit,
+      sort: [{ timestamp: "desc" }],
+    });
     const docs = (result.docs || []).sort(
       (a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0)
     );

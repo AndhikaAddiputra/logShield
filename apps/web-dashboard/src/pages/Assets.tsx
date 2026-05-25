@@ -22,6 +22,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { RefreshCw } from "lucide-react";
 import {
   type StockCategory,
   type StockReading,
@@ -52,6 +53,13 @@ const accentClasses: Record<string, string> = {
 
 function formatNumber(value: number) {
   return value.toLocaleString("id-ID");
+}
+
+function formatReadingTimestamp(reading: StockReading) {
+  const timestampMs = Date.parse(reading.timestamp);
+  const createdMs = Date.parse(reading.created_at);
+  const value = Number.isNaN(timestampMs) ? createdMs : timestampMs;
+  return Number.isNaN(value) ? "-" : new Date(value).toLocaleString("id-ID");
 }
 
 function StockRow({
@@ -201,6 +209,7 @@ export function AssetsPage() {
   const [readings, setReadings] = useState<StockReading[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshingReadings, setRefreshingReadings] = useState(false);
 
   const [showAdd, setShowAdd] = useState(false);
   const [addCategory, setAddCategory] = useState("pangan");
@@ -249,6 +258,18 @@ export function AssetsPage() {
   useEffect(() => {
     loadData();
   }, []);
+
+  const refreshIotReadings = async () => {
+    setRefreshingReadings(true);
+    try {
+      const res = await fetchStockReadings({ limit: 100 });
+      setReadings(res.readings);
+    } catch (err: any) {
+      alert(err.message || "Gagal memuat pembacaan IoT");
+    } finally {
+      setRefreshingReadings(false);
+    }
+  };
 
   const filteredCategories = useMemo(() => {
     if (!search) return categories;
@@ -444,18 +465,30 @@ export function AssetsPage() {
                   <h2 className="text-base font-semibold text-ls-navy">Pembacaan Sensor IoT</h2>
                   <p className="text-xs text-ls-muted">Data timbangan dari load cell per komoditas</p>
                 </div>
-                {readings.length > 0 && (
-                  <select
-                    value={iotFilter}
-                    onChange={(e) => setIotFilter(e.target.value)}
-                    className="rounded-ls-md border border-ls-border bg-white px-3 py-1.5 text-xs text-ls-navy"
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={refreshIotReadings}
+                    disabled={refreshingReadings}
+                    leftIcon={<RefreshCw className={`size-3.5 ${refreshingReadings ? "animate-spin" : ""}`} />}
                   >
-                    <option value="all">Semua Komoditas</option>
-                    {[...new Set(readings.map((r) => r.commodity))].map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                )}
+                    Refresh
+                  </Button>
+                  {readings.length > 0 && (
+                    <select
+                      value={iotFilter}
+                      onChange={(e) => setIotFilter(e.target.value)}
+                      className="rounded-ls-md border border-ls-border bg-white px-3 py-1.5 text-xs text-ls-navy"
+                    >
+                      <option value="all">Semua Komoditas</option>
+                      {[...new Set(readings.map((r) => r.commodity))].map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
               </div>
               {readings.length > 0 ? (
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -505,8 +538,16 @@ export function AssetsPage() {
                             <span className="font-mono text-ls-navy">{latest.node_id}</span>
                           </div>
                           <div className="flex justify-between">
+                            <span>Gudang</span>
+                            <span className="font-mono text-ls-navy">{latest.warehouse_id}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Uptime node</span>
+                            <span className="font-mono text-ls-navy">{latest.uptime_s}s</span>
+                          </div>
+                          <div className="flex justify-between">
                             <span>Terakhir</span>
-                            <span className="text-ls-navy">{new Date(latest.timestamp).toLocaleString("id-ID")}</span>
+                            <span className="text-ls-navy">{formatReadingTimestamp(latest)}</span>
                           </div>
                         </div>
                       </div>
@@ -515,9 +556,9 @@ export function AssetsPage() {
                 </div>
               ) : (
                 <div className="flex flex-col items-center gap-2 py-10 text-sm text-ls-muted">
-                  <span className="text-2xl">📡</span>
-                  <span>Belum ada data dari sensor IoT</span>
-                  <span className="text-xs">Kirim data via POST /api/stock-readings atau melalui MQTT</span>
+                  <span className="text-xs font-bold uppercase tracking-wide text-ls-navy">Sensor IoT belum mengirim data</span>
+                  <span className="text-xs">Firmware ESP32 publish ke MQTT topic: logshield/warehouse/+/scale/+/reading</span>
+                  <span className="text-xs">Alternatif uji cepat: POST /api/stock-readings</span>
                 </div>
               )}
             </div>

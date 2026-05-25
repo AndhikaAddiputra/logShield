@@ -259,6 +259,7 @@ async function replayOne(db: ReturnType<typeof createLocalDb>, doc: OutboxDoc): 
     if (!res.ok) {
       throw new Error((data as { message?: string })?.message || "Sinkron gagal");
     }
+    await applyReplaySideEffects(doc, data);
     const latest = await db.get(doc._id) as OutboxDoc;
     await db.put({
       ...latest,
@@ -276,6 +277,16 @@ async function replayOne(db: ReturnType<typeof createLocalDb>, doc: OutboxDoc): 
     });
     await markLocalRequest(db, latest, isNetworkError(error) ? "pending" : "failed");
   }
+}
+
+async function applyReplaySideEffects(doc: OutboxDoc, data: unknown): Promise<void> {
+  if (doc.method !== "PATCH" || !doc.endpoint.startsWith("/api/poskos/")) return;
+  const posko = data && typeof data === "object" ? (data as { posko?: unknown }).posko : null;
+  if (!posko) return;
+  const encodedId = doc.endpoint.slice("/api/poskos/".length);
+  const poskoId = decodeURIComponent(encodedId);
+  await cacheValue(`posko:${poskoId}`, posko);
+  window.dispatchEvent(new CustomEvent("logshield-posko-cache-updated", { detail: { poskoId } }));
 }
 
 async function markLocalRequest(
