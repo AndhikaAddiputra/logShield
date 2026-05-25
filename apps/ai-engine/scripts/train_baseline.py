@@ -30,21 +30,6 @@ def to_float(value: str) -> float:
     return float(value)
 
 
-def summarize_metrics(rows: list[dict[str, object]]) -> dict[str, dict[str, float | int | None]]:
-    summary: dict[str, dict[str, float | int | None]] = {}
-    for source in ("false", "true", "mixed"):
-        source_rows = [row for row in rows if str(row["is_synthetic_series"]) == source]
-        mae_values = [float(row["mae"]) for row in source_rows]
-        mape_values = [float(row["mape"]) for row in source_rows]
-        label = {"false": "real", "true": "synthetic", "mixed": "mixed"}[source]
-        summary[label] = {
-            "series": len(source_rows),
-            "average_mae": round(sum(mae_values) / len(mae_values), 4) if mae_values else None,
-            "average_mape": round(sum(mape_values) / len(mape_values), 4) if mape_values else None,
-        }
-    return summary
-
-
 def load_series() -> dict[tuple[str, str, str], list[dict[str, str]]]:
     groups: dict[tuple[str, str, str], list[dict[str, str]]] = defaultdict(list)
     with INPUT_CSV.open("r", encoding="utf-8", newline="") as handle:
@@ -73,7 +58,6 @@ def write_metrics(rows: list[dict[str, object]]) -> None:
         "best_model",
         "mae",
         "mape",
-        "is_synthetic_series",
     ]
     with METRICS_CSV.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields)
@@ -95,7 +79,6 @@ def write_forecasts(rows: list[dict[str, object]]) -> None:
         "forecast_target_need_qty",
         "last_observed_date",
         "series_length",
-        "is_synthetic_series",
     ]
     with FORECAST_CSV.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields)
@@ -121,7 +104,6 @@ def main() -> int:
         meta = rows[-1]
         test_rows = rows[-HORIZON:]
         train_until = rows[-HORIZON - 1]["date"] if len(rows) > HORIZON else rows[0]["date"]
-        is_synthetic_series = "mixed" if len({row["is_synthetic"] for row in rows}) > 1 else rows[-1]["is_synthetic"]
 
         metrics_rows.append(
             {
@@ -139,7 +121,6 @@ def main() -> int:
                 "best_model": best.model_name,
                 "mae": round(best.mae, 4),
                 "mape": round(best.mape, 4),
-                "is_synthetic_series": is_synthetic_series,
             }
         )
 
@@ -160,7 +141,6 @@ def main() -> int:
                     "forecast_target_need_qty": round(max(forecast_value, 0.0), 2),
                     "last_observed_date": rows[-1]["date"],
                     "series_length": len(rows),
-                    "is_synthetic_series": is_synthetic_series,
                 }
             )
 
@@ -185,7 +165,6 @@ def main() -> int:
         "forecast_rows": len(forecast_rows),
         "average_mae": round(sum(mae_values) / len(mae_values), 4) if mae_values else None,
         "average_mape": round(sum(mape_values) / len(mape_values), 4) if mape_values else None,
-        "metric_breakdown": summarize_metrics(metrics_rows),
         "model_counts": dict(sorted(model_counts.items())),
         "disaster_counts": dict(sorted(disaster_counts.items())),
         "outputs": {

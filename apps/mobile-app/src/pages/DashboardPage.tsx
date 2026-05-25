@@ -24,7 +24,7 @@ export default function DashboardPage() {
 
   const [requestingItem, setRequestingItem] = useState<any | null>(null);
   const [reqQty, setReqQty] = useState(0);
-  const [reqPriority, setReqPriority] = useState<'normal' | 'mendesak'>('normal');
+  const [reqPriority, setReqPriority] = useState<'normal' | 'high'>('normal');
   const [reqLoading, setReqLoading] = useState(false);
 
   const [showAnomalyForm, setShowAnomalyForm] = useState(false);
@@ -143,7 +143,9 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    fetchAI();
+    if (userPoskoId) {
+      fetchAI();
+    }
   }, [userPoskoId]);
 
   const handleSaveDemografi = async () => {
@@ -355,8 +357,8 @@ export default function DashboardPage() {
                 <button onClick={() => setReqPriority('normal')}
                   className={`flex-1 py-2.5 rounded-lg text-xs font-bold ${reqPriority === 'normal' ? 'bg-blue-700 text-white' : 'bg-gray-100 text-gray-600'}`}
                 >Normal</button>
-                <button onClick={() => setReqPriority('mendesak')}
-                  className={`flex-1 py-2.5 rounded-lg text-xs font-bold ${reqPriority === 'mendesak' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-600'}`}
+                <button onClick={() => setReqPriority('high')}
+                  className={`flex-1 py-2.5 rounded-lg text-xs font-bold ${reqPriority === 'high' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-600'}`}
                 >Mendesak</button>
               </div>
             </div>
@@ -545,8 +547,8 @@ export default function DashboardPage() {
                 <button onClick={() => setReqPriority('normal')}
                   className={`flex-1 py-2.5 rounded-lg text-xs font-bold ${reqPriority === 'normal' ? 'bg-blue-700 text-white' : 'bg-gray-100 text-gray-600'}`}
                 >Normal</button>
-                <button onClick={() => setReqPriority('mendesak')}
-                  className={`flex-1 py-2.5 rounded-lg text-xs font-bold ${reqPriority === 'mendesak' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-600'}`}
+                <button onClick={() => setReqPriority('high')}
+                  className={`flex-1 py-2.5 rounded-lg text-xs font-bold ${reqPriority === 'high' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-600'}`}
                 >Mendesak</button>
               </div>
             </div>

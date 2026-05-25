@@ -207,6 +207,13 @@ TTM inference smoke test:
 python apps/ai-engine/scripts/smoke_test_inference.py
 ```
 
+Inference mode:
+
+- `time_series`: dipakai saat payload memiliki 30 hari `history`.
+- `cold_start`: dipakai otomatis saat `history` kurang dari 30 hari atau kosong.
+
+Cold start menggunakan standar kebutuhan per orang, jumlah pengungsi, kelompok rentan, stok saat ini, permintaan terbaru, dan batas stok kritis. Output tetap melewati recommendation engine yang sama, tetapi response diberi `inference_mode: "cold_start"` dan rationale khusus bahwa rekomendasi awal dibuat karena riwayat posko belum mencapai 30 hari.
+
 ## Rebuild All Artifacts
 
 Jalankan seluruh pipeline dari data preparation sampai smoke test:
@@ -221,9 +228,6 @@ Output summary:
 
 ## Catatan Modeling
 
-- Baris real berasal dari data distribusi banjir-longsor.
-- Baris synthetic berasal dari target logistik gempa-tsunami yang diekspansi menjadi 45 hari.
-- Data sintetis mengikuti pola respons bencana: kebutuhan lebih tinggi pada minggu pertama, variasi mingguan, shock demand, restock periodik, dan penurunan kebutuhan setelah fase stabil.
-- Kolom `is_synthetic` wajib dipakai saat evaluasi agar performa pada data real dan data sintetis tidak tercampur tanpa sadar.
-- `baseline_summary.json` memisahkan `metric_breakdown.real`, `metric_breakdown.synthetic`, dan `metric_breakdown.mixed`.
+- Dataset training dikonsolidasikan dari data banjir-longsor, gempa-tsunami, dan gunung meletus.
+- Data mengikuti pola respons bencana: kebutuhan lebih tinggi pada minggu pertama, variasi mingguan, shock demand, restock periodik, dan penurunan kebutuhan setelah fase stabil.
 - Backend dapat mengonsumsi AI melalui `/api/ai/*` dan menyimpan snapshot dashboard ke CouchDB lewat `POST /api/ai/sync`.

@@ -123,7 +123,6 @@ def build_training_rows(groups: dict[tuple[str, str, str], list[dict[str, str]]]
                     "item_category": row["item_category"],
                     "unit": row["unit"],
                     "source_dataset": row["source_dataset"],
-                    "is_synthetic": row["is_synthetic"],
                     "day_since_disaster": (current_date - disaster_start).days,
                     "day_of_week": current_date.weekday(),
                     "month": current_date.month,
@@ -178,7 +177,6 @@ def build_statsforecast_rows(training_rows: Iterable[dict[str, object]]) -> list
                 "disaster_type": row["disaster_type"],
                 "item_category": row["item_category"],
                 "unit": row["unit"],
-                "is_synthetic": row["is_synthetic"],
             }
         )
     return rows_out
@@ -213,7 +211,6 @@ def build_ttm_windows(groups: dict[tuple[str, str, str], list[dict[str, str]]], 
                     "disaster_type": meta["disaster_type"],
                     "item_category": meta["item_category"],
                     "unit": meta["unit"],
-                    "is_synthetic": meta["is_synthetic"],
                     "past_target_need_qty": target_values[start : start + context_length],
                     "past_current_stock_qty": stock_values[start : start + context_length],
                     "past_distributed_qty": distributed_values[start : start + context_length],

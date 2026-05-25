@@ -16,7 +16,6 @@ SERIES_META_COLUMNS = [
     "item_category",
     "unit",
     "source_dataset",
-    "is_synthetic",
 ]
 
 TRAINING_FEATURE_COLUMNS = [
@@ -78,7 +77,6 @@ STATSFORECAST_COLUMNS = [
     "disaster_type",
     "item_category",
     "unit",
-    "is_synthetic",
 ]
 
 TTM_CONTEXT_LENGTH = 30

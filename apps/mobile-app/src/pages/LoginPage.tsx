@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Shield, User, Lock, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
+import { User, Lock, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
 import { API_BASE_URL } from '../lib/api';
 import logoWhite from "../../assets/logo-white.svg";
 

@@ -4,6 +4,7 @@ import {
   ValidationError,
 } from "./document-schema.js";
 import { bulkDocuments, findDocuments, getDocument, putExistingDocument } from "./couchdb.js";
+import { normalizeItemName } from "./ai.js";
 
 const CATEGORY_META = {
   sandang: {
@@ -165,7 +166,7 @@ async function getDocs(selector, limit) {
 function normalizeAddStockInput(input = {}) {
   return {
     warehouse_id: requiredString(input.warehouse_id, "warehouse_id"),
-    commodity: requiredString(input.commodity, "commodity"),
+    commodity: normalizeItemName(requiredString(input.commodity, "commodity")),
     category: requiredString(input.category, "category"),
     quantity: positiveNumber(input.quantity, "quantity"),
     unit: requiredString(input.unit, "unit"),
@@ -249,7 +250,13 @@ export async function updateAsset(id, input = {}, now = new Date()) {
   for (const [key, value] of Object.entries(input)) {
     if (value === undefined || value === null) continue;
     if (!ALLOWED_FIELDS.includes(key)) continue;
-    doc[key] = key === "min_threshold" ? Number(value) : String(value);
+    if (key === "min_threshold") {
+      doc[key] = Number(value);
+    } else if (key === "commodity") {
+      doc[key] = normalizeItemName(value);
+    } else {
+      doc[key] = String(value);
+    }
   }
 
   doc.updated_at = now.toISOString();

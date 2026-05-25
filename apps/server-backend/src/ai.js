@@ -461,7 +461,7 @@ export async function inferPoskoCommodities(poskoId) {
         daily_recommendations: r.recommendation?.daily_recommendations || [],
         trend_direction: trend.direction,
         trend_pct_7d: trend.pct7d,
-        attribution,
+        attribution: att,
         error: r.error || null,
       };
     }),
