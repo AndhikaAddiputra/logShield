@@ -83,7 +83,6 @@ def detect_anomalies() -> list[dict[str, object]]:
                         "distributed_qty": row["distributed_qty"],
                         "message": event.message,
                         "action_suggestion": event.action_suggestion,
-                        "is_synthetic": row["is_synthetic"],
                     }
                 )
             need_history.append(current_need)
@@ -115,7 +114,6 @@ def write_events(events: list[dict[str, object]]) -> None:
         "distributed_qty",
         "message",
         "action_suggestion",
-        "is_synthetic",
     ]
     with ANOMALY_CSV.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields)

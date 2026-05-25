@@ -1,0 +1,22 @@
+{
+  "input": "data\\processed\\logshield_tinytimemixer_windows.jsonl",
+  "output": "data\\tinytimemixer\\logshield_ttm_arrays.npz",
+  "windows": 38889,
+  "channels": [
+    "past_target_need_qty",
+    "past_current_stock_qty",
+    "past_distributed_qty",
+    "past_requested_qty"
+  ],
+  "context_length": 30,
+  "input_channels": 4,
+  "horizon": 7,
+  "splits": {
+    "train": 27222,
+    "validation": 5833,
+    "test": 5834
+  },
+  "model_target": "IBM Granite TinyTimeMixer / TTM",
+  "recommended_epochs": 10,
+  "early_stopping_patience": 3
+}

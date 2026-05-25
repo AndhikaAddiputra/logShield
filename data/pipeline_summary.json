@@ -25,8 +25,6 @@
         "  \"date_max\": \"2026-01-02\",",
         "  \"posko_count\": 316,",
         "  \"item_count\": 383,",
-        "  \"synthetic_rows\": 194445,",
-        "  \"real_rows\": 892,",
         "  \"errors\": [],",
         "  \"error_count\": 0,",
         "  \"raw_row_count_before_collapse\": 195401,",

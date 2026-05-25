@@ -84,7 +84,6 @@ def build_recommendations() -> list[dict[str, object]]:
                 total_pengungsi=to_int(state["total_pengungsi"]),
                 vulnerable_count=vulnerable_count,
                 series_length=to_int(forecast["series_length"]),
-                is_synthetic_series=forecast["is_synthetic_series"],
                 model_mape=to_float(metric["mape"]),
             )
             rows.append(

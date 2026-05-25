@@ -1,0 +1,28 @@
+{
+  "input": "data\\processed\\logshield_timeseries.csv",
+  "outputs": {
+    "training_dataset": "data\\processed\\logshield_training_dataset.csv",
+    "statsforecast_dataset": "data\\processed\\logshield_statsforecast_dataset.csv",
+    "tinytimemixer_windows": "data\\processed\\logshield_tinytimemixer_windows.jsonl"
+  },
+  "rows": 195337,
+  "series": 4737,
+  "dates": 197,
+  "date_min": "2024-04-20",
+  "date_max": "2026-01-02",
+  "risk_counts": {
+    "aman": 114562,
+    "kritis": 23527,
+    "waspada": 57248
+  },
+  "disaster_counts": {
+    "banjir_longsor": 892,
+    "gempa_bumi_tsunami": 131265,
+    "gunung_meletus": 63180
+  },
+  "tinytimemixer": {
+    "context_length": 30,
+    "horizon": 7,
+    "windows": 38889
+  }
+}

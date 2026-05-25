@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, HTTPException, Query
 
 from logshield_ai.artifacts import (
     anomalies,
@@ -14,6 +14,7 @@ from logshield_ai.artifacts import (
     recommendations,
     top_critical_recommendations,
 )
+from logshield_ai.inference import infer_need, infer_recommendation, model_status
 
 app = FastAPI(
     title="Log-Shield AI Engine",
@@ -25,6 +26,31 @@ app = FastAPI(
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok", "service": "logshield-ai-engine"}
+
+
+@app.get("/models/current")
+def current_model() -> dict:
+    return model_status()
+
+
+@app.post("/infer/need")
+def infer_need_endpoint(payload: dict) -> dict:
+    try:
+        return infer_need(payload)
+    except (KeyError, ValueError) as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    except RuntimeError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+
+
+@app.post("/infer/recommendation")
+def infer_recommendation_endpoint(payload: dict) -> dict:
+    try:
+        return infer_recommendation(payload)
+    except (KeyError, ValueError) as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    except RuntimeError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
 
 
 @app.get("/summary")

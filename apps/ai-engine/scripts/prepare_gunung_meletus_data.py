@@ -23,7 +23,7 @@ except Exception as exc:
 DOWNLOADS = Path(r"C:\Users\Ferro Arka\Downloads")
 OUTPUT_DIR = ROOT / "dataset" / "Gunung-Meletus"
 SOURCE_SNAPSHOT_CSV = OUTPUT_DIR / "gunung_meletus_pengungsi.csv"
-CANONICAL_SYNTHETIC_CSV = OUTPUT_DIR / "logshield_gunung_meletus.csv"
+CANONICAL_CSV = OUTPUT_DIR / "logshield_gunung_meletus.csv"
 
 KIB_BY_EVENT = {
     "lewotobi": "BNC-2024-GM-LEWOTOBI",
@@ -266,7 +266,7 @@ def target_need(item_name: str, total: int, bayi: int, balita: int, lansia: int,
     return max(total * base_rate + vulnerable * vuln_rate, 0.0)
 
 
-def build_canonical_synthetic(snapshots: list[dict[str, object]], days: int = 45) -> list[dict[str, object]]:
+def build_canonical_rows(snapshots: list[dict[str, object]], days: int = 45) -> list[dict[str, object]]:
     rng = random.Random(20260514)
     by_posko: dict[str, list[dict[str, object]]] = {}
     for snapshot in snapshots:
@@ -344,7 +344,6 @@ def build_canonical_synthetic(snapshots: list[dict[str, object]], days: int = 45
                         "target_need_qty": round(need, 2),
                         "critical_stock_threshold": round(max(need * 1.8, 1.0), 2),
                         "source_dataset": f"Gunung-Meletus/{snap['source_file']}",
-                        "is_synthetic": "true",
                     }
                 )
                 rows.append(row)
@@ -352,7 +351,7 @@ def build_canonical_synthetic(snapshots: list[dict[str, object]], days: int = 45
 
 
 def write_canonical(rows: list[dict[str, object]]) -> None:
-    with CANONICAL_SYNTHETIC_CSV.open("w", encoding="utf-8", newline="") as handle:
+    with CANONICAL_CSV.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=CANONICAL_COLUMNS)
         writer.writeheader()
         for row in sorted(rows, key=lambda item: (item["date"], item["kib_bencana_id"], item["posko_id"], item["item_name"])):
@@ -363,7 +362,7 @@ def main() -> int:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     snapshots = load_lewotobi() + load_gunung_ibu() + load_gunung_ruang()
     write_snapshot_sources(snapshots)
-    rows = build_canonical_synthetic(snapshots)
+    rows = build_canonical_rows(snapshots)
     write_canonical(rows)
     poskos = {row["posko_id"] for row in rows}
     events = {row["kib_bencana_id"] for row in rows}
@@ -373,7 +372,7 @@ def main() -> int:
             "canonical_rows": len(rows),
             "events": len(events),
             "poskos": len(poskos),
-            "output": str(CANONICAL_SYNTHETIC_CSV.relative_to(ROOT)),
+            "output": str(CANONICAL_CSV.relative_to(ROOT)),
         }
     )
     return 0

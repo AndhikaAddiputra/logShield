@@ -1,0 +1,40 @@
+{
+  "input": "data\\processed\\logshield_statsforecast_dataset.csv",
+  "horizon": 7,
+  "n_windows": 3,
+  "step_size": 7,
+  "rows": 194445,
+  "series": 4321,
+  "min_series_length": 28,
+  "skipped_short_series": 416,
+  "metrics": {
+    "models": {
+      "Naive": {
+        "mae": 70.6838,
+        "rmse": 360.0907,
+        "mape": 0.1071
+      },
+      "SeasonalNaive": {
+        "mae": 41.8961,
+        "rmse": 267.3949,
+        "mape": 0.0682
+      },
+      "WindowAverage": {
+        "mae": 49.4722,
+        "rmse": 248.2525,
+        "mape": 0.078
+      },
+      "AutoETS": {
+        "mae": 70.2686,
+        "rmse": 355.7429,
+        "mape": 0.1056
+      }
+    },
+    "best_model": "SeasonalNaive"
+  },
+  "outputs": {
+    "backtest": "data\\statsforecast\\statsforecast_backtest.csv",
+    "forecast": "data\\statsforecast\\statsforecast_forecast_7d.csv",
+    "model": "apps\\ai-engine\\models\\statsforecast\\statsforecast_model.pkl"
+  }
+}
